@@ -15,7 +15,7 @@ export class HUD {
    * @param {Array} killFeed      — [{ text, color, timer }]
    * @param {number} time         — elapsed time in seconds
    */
-  draw(ctx, localPlayer, allPlayers, killFeed, time) {
+  draw(ctx, localPlayer, allPlayers, killFeed, time, soloInfo = null) {
     if (!localPlayer) return;
 
     const W = CONFIG.VIEWPORT_W;
@@ -78,8 +78,13 @@ export class HUD {
     // Dodge cooldown
     _cooldownArc(ctx, cdX + 65, cdY + 18, 14, 1 - Math.min(1, (localPlayer.dodgeCooldown || 0) / CONFIG.DODGE_COOLDOWN), '#44AAFF', 'DODGE');
 
-    // ── Top-right: Score display ─────────────────────────────
-    this._drawScores(ctx, allPlayers, W, time);
+    // ── Top-center: Solo mode HUD ────────────────────────────
+    if (soloInfo) {
+      this._drawSoloHUD(ctx, soloInfo, W);
+    } else {
+      // ── Top-right: Score display (multiplayer only) ─────────
+      this._drawScores(ctx, allPlayers, W, time);
+    }
 
     // ── Top-right: Kill feed ─────────────────────────────────
     this._drawKillFeed(ctx, killFeed, W, time);
@@ -126,6 +131,31 @@ export class HUD {
       ctx.fillText(`${p.kills || 0} / ${CONFIG.KILL_TARGET}`, W - 14, 16 + i * 22);
     });
     ctx.restore();
+  }
+
+  _drawSoloHUD(ctx, soloInfo, W) {
+    const cx = W / 2;
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    _roundRect(ctx, cx - 90, 6, 180, 56, 5);
+    ctx.fill();
+
+    // Lives (hearts)
+    const lives = Math.max(0, soloInfo.lives || 0);
+    ctx.font = 'bold 20px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    let heartsStr = '';
+    for (let i = 0; i < 3; i++) {
+      heartsStr += i < lives ? '\u2665' : '\u2661';  // ♥ or ♡
+    }
+    ctx.fillStyle = '#FF4444';
+    ctx.fillText(heartsStr, cx, 12);
+
+    // AI remaining
+    ctx.fillStyle = '#FF8800';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 38);
   }
 
   _drawKillFeed(ctx, killFeed, W, time) {

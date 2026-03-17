@@ -147,11 +147,12 @@ wss.on('connection', (ws) => {
     if (!client) return;
 
     switch (msg.type) {
-      case 'join': handleJoin(ws, client, msg); break;
-      case 'ready': handleReady(ws, client); break;
-      case 'input': handleInput(ws, client, msg); break;
-      case 'ship_select': handleShipSelect(ws, client, msg); break;
-      case 'rematch': handleRematch(ws, client); break;
+      case 'join':       handleJoin(ws, client, msg); break;
+      case 'ready':      handleReady(ws, client); break;
+      case 'input':      handleInput(ws, client, msg); break;
+      case 'ship_select':handleShipSelect(ws, client, msg); break;
+      case 'rematch':    handleRematch(ws, client); break;
+      case 'play_solo':  handlePlaySolo(ws, client, msg); break;
     }
   });
 
@@ -269,6 +270,31 @@ function handleRematch(ws, client) {
     if (rc) rc.ready = false;
   }
   broadcastRoom(room, lobbySnapshot(room));
+}
+
+function handlePlaySolo(ws, client, msg) {
+  const name       = String(msg.name || 'Player').slice(0, 16).trim() || 'Player';
+  const ship       = Math.max(0, Math.min(CONFIG.SHIPS.length - 1, parseInt(msg.ship) || 0));
+  const difficulty = ['easy', 'medium', 'hard'].includes(msg.difficulty) ? msg.difficulty : 'easy';
+
+  client.name = name;
+  client.ship = ship;
+
+  // Leave any previous room
+  if (client.roomCode) removeClientFromRoom(ws);
+
+  // Create a private solo room
+  const code = generateRoomCode();
+  const room = { code, hostId: client.id, players: new Map(), game: null, state: 'playing', soloRoom: true };
+  room.players.set(client.id, ws);
+  rooms.set(code, room);
+  client.roomCode = code;
+  client.ready    = false;
+
+  // Start game immediately — no countdown
+  const players = [{ id: client.id, name, ship }];
+  room.game = new Game(room, players, (m) => broadcastRoom(room, m), { soloMode: true, difficulty });
+  room.game.start();
 }
 
 // Expose callback so Game can call it on round end

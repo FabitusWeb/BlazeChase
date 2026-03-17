@@ -18,8 +18,10 @@
   <div class="menu-center">
     <h1 class="game-title">BLAZE<br><span>CHASE</span></h1>
     <div class="menu-buttons">
-      <button class="btn btn-primary" id="btn-create">CREATE ROOM</button>
+      <button class="btn btn-primary" id="btn-solo">SINGLE PLAYER</button>
+      <button class="btn btn-secondary" id="btn-create">CREATE ROOM</button>
       <button class="btn btn-secondary" id="btn-join">JOIN ROOM</button>
+      <button class="btn btn-back" id="btn-leaderboard">LEADERBOARD</button>
     </div>
     <div id="join-form" class="join-form hidden">
       <input id="input-code" type="text" maxlength="4" placeholder="ROOM CODE" autocomplete="off" spellcheck="false">
@@ -31,6 +33,60 @@
       <button class="btn btn-primary" id="btn-create-confirm">CREATE</button>
     </div>
     <div id="menu-error" class="error-msg hidden"></div>
+  </div>
+</div>
+
+<!-- ── SINGLE PLAYER ──────────────────────────────────── -->
+<div id="screen-solo" class="screen">
+  <div class="solo-wrapper">
+    <h2 class="solo-title">SINGLE PLAYER</h2>
+    <div class="solo-form">
+      <input id="solo-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="off">
+      <div class="ship-select-label" style="margin-top:16px">CHOOSE YOUR SHIP</div>
+      <div class="ship-grid" id="solo-ship-grid"></div>
+      <div class="diff-label">DIFFICULTY</div>
+      <div class="diff-buttons">
+        <button class="btn diff-btn" id="diff-easy"   data-diff="easy">EASY</button>
+        <button class="btn diff-btn" id="diff-medium" data-diff="medium">MEDIUM</button>
+        <button class="btn diff-btn" id="diff-hard"   data-diff="hard">HARD</button>
+      </div>
+      <div class="diff-hint" id="diff-hint"></div>
+      <button class="btn btn-primary solo-play-btn" id="btn-solo-play">PLAY</button>
+      <button class="btn btn-back" id="btn-back-solo">BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEADERBOARD ────────────────────────────────────── -->
+<div id="screen-leaderboard" class="screen">
+  <div class="scoreboard-wrapper">
+    <h2>LEADERBOARD</h2>
+    <div class="lb-tabs">
+      <button class="btn lb-tab active" data-diff="easy">EASY</button>
+      <button class="btn lb-tab" data-diff="medium">MEDIUM</button>
+      <button class="btn lb-tab" data-diff="hard">HARD</button>
+    </div>
+    <table id="lb-table">
+      <thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th>K</th><th>D</th><th>DATE</th></tr></thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+    <div class="scoreboard-buttons">
+      <button class="btn btn-back" id="btn-back-lb">BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SOLO END ───────────────────────────────────────── -->
+<div id="screen-solo-end" class="screen">
+  <div class="scoreboard-wrapper">
+    <h2 id="solo-end-title">ROUND OVER</h2>
+    <div id="solo-end-banner" class="winner-banner"></div>
+    <div id="solo-end-stats" class="solo-stats"></div>
+    <div class="scoreboard-buttons">
+      <button class="btn btn-primary" id="btn-play-again">PLAY AGAIN</button>
+      <button class="btn btn-back" id="btn-solo-end-lb">VIEW SCORES</button>
+      <button class="btn btn-back" id="btn-solo-end-menu">MENU</button>
+    </div>
   </div>
 </div>
 

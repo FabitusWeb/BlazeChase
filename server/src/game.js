@@ -8,14 +8,20 @@ const { updateShip, resolveShipCollisions, createShip } = require('./physics');
 const { fireBullets, updateBullets } = require('./weapons');
 const { updatePowerups, checkPickups } = require('./powerups');
 const { updateHazards } = require('./hazards');
+const { createAIShip, updateAI } = require('./enemies');
 const { TILE } = CONFIG;
+
+const SOLO_AI_COUNT = { easy: 1, medium: 2, hard: 3 };
+const SOLO_SCORE_MULT = { easy: 1, medium: 2, hard: 3 };
 
 const TICK_MS = 1000 / CONFIG.TICK_RATE;  // ~16.67ms
 
 class Game {
-  constructor(room, players, broadcast) {
+  constructor(room, players, broadcast, options = {}) {
     this.room      = room;
     this.broadcast = broadcast;
+    this.soloMode  = options.soloMode  || false;
+    this.soloDiff  = options.difficulty || 'easy';
 
     // Generate arena
     this.arena = generateArena();
@@ -27,6 +33,22 @@ class Game {
       this.ships[p.id] = createShip(p, sp, idx);
     });
 
+    // Solo mode: spawn AI ships
+    this.aiShips = [];
+    if (this.soloMode) {
+      this.playerLives = 3;
+      const aiCount = SOLO_AI_COUNT[this.soloDiff] || 1;
+      for (let i = 0; i < aiCount; i++) {
+        const spIdx = (players.length + i) % this.arena.spawnPoints.length;
+        const sp    = this.arena.spawnPoints[spIdx];
+        const shipId = Math.floor(Math.random() * CONFIG.SHIPS.length);
+        const aiId   = 'ai-' + i;
+        const aiShip = createAIShip(aiId, sp, shipId, this.soloDiff);
+        this.aiShips.push(aiShip);
+        this.ships[aiId] = aiShip;
+      }
+    }
+
     this.bullets    = [];
     this.powerups   = [];
     this.events     = [];   // accumulated per-tick events to broadcast
@@ -34,7 +56,7 @@ class Game {
     this.running    = false;
     this.roundOver  = false;
 
-    // Input buffer: latest input per player
+    // Input buffer: latest input per human player
     this.inputBuffer = {};
     for (const p of players) {
       this.inputBuffer[p.id] = { up:false, down:false, left:false, right:false, fire:false, dash:false, dodge:false, switchWeapon:false };
@@ -112,8 +134,9 @@ class Game {
   }
 
   _update(dt) {
-    // ── Process weapon switching ───────────────────────────
+    // ── Process weapon switching (human ships only) ────────
     for (const [id, ship] of Object.entries(this.ships)) {
+      if (ship.isAI) continue;
       const input = this.inputBuffer[id];
       if (input && input.switchWeapon && !input._prevSwitchWeapon && ship.alive) {
         ship.weapon = (ship.weapon + 1) % CONFIG.WEAPONS.length;
@@ -121,17 +144,25 @@ class Game {
       if (input) input._prevSwitchWeapon = input.switchWeapon;
     }
 
-    // ── Update ships ───────────────────────────────────────
+    // ── Update human ships ─────────────────────────────────
     for (const [id, ship] of Object.entries(this.ships)) {
+      if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
       updateShip(ship, input, dt, this.arena);
+    }
+
+    // ── Update AI ships ────────────────────────────────────
+    if (this.soloMode && this.aiShips.length > 0) {
+      const aiBullets = updateAI(this.aiShips, this.ships, this.arena, dt);
+      this.bullets.push(...aiBullets);
     }
 
     // ── Ship-ship collision ────────────────────────────────
     resolveShipCollisions(this.ships);
 
-    // ── Fire bullets ──────────────────────────────────────
+    // ── Fire bullets (human ships only; AI fires via updateAI) ──
     for (const [id, ship] of Object.entries(this.ships)) {
+      if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
       const newBullets = fireBullets(ship, input);
       this.bullets.push(...newBullets);
@@ -241,6 +272,18 @@ class Game {
       this.ships[killerId].kills++;
     }
 
+    // Solo mode: AI never respawns; player loses a life
+    if (this.soloMode) {
+      if (ship.isAI) {
+        ship.respawnTimer = 9999;
+      } else {
+        this.playerLives = Math.max(0, this.playerLives - 1);
+        if (this.playerLives <= 0) {
+          ship.respawnTimer = 9999;  // no more respawns
+        }
+      }
+    }
+
     this.events.push({
       type: 'event', kind: 'kill',
       killerId, victimId: ship.id,
@@ -257,6 +300,19 @@ class Game {
 
   _checkRoundEnd() {
     if (this.roundOver) return;
+
+    if (this.soloMode) {
+      if (this.aiShips.length > 0 && this.aiShips.every(ai => !ai.alive)) {
+        this._endSolo(true);
+        return;
+      }
+      if (this.playerLives <= 0) {
+        const humanShip = Object.values(this.ships).find(s => !s.isAI);
+        if (humanShip && !humanShip.alive) this._endSolo(false);
+      }
+      return;
+    }
+
     for (const ship of Object.values(this.ships)) {
       if (ship.kills >= CONFIG.KILL_TARGET) {
         this.roundOver = true;
@@ -269,16 +325,11 @@ class Game {
           winnerName: ship.name,
           scores,
         });
-        // After 5s, go back to lobby
         setTimeout(() => {
           if (!this.running) return;
           this.stop();
           this.room.state = 'lobby';
           this.room.game  = null;
-          // Reset ready flags
-          for (const [, ws] of this.room.players) {
-            // Access via parent module — broadcast a lobby reset
-          }
           this.broadcast({ type: 'lobby_reset' });
         }, 5000);
         return;
@@ -286,9 +337,27 @@ class Game {
     }
   }
 
+  _endSolo(victory) {
+    this.roundOver = true;
+    const humanShip = Object.values(this.ships).find(s => !s.isAI);
+    const kills  = humanShip?.kills  || 0;
+    const deaths = humanShip?.deaths || 0;
+    const score  = kills * (SOLO_SCORE_MULT[this.soloDiff] || 1);
+    this.broadcast({ type: 'solo_end', victory, score, kills, deaths, difficulty: this.soloDiff, livesLeft: this.playerLives });
+    setTimeout(() => {
+      if (!this.running) return;
+      this.stop();
+      this.room.state = 'lobby';
+      this.room.game  = null;
+    }, 5000);
+  }
+
   _broadcastState() {
     const players = Object.values(this.ships).map(s => ({
       id:             s.id,
+      name:           s.name,
+      shipId:         s.shipId,
+      isAI:           s.isAI || false,
       x:              s.x,
       y:              s.y,
       angle:          s.angle,
@@ -332,12 +401,18 @@ class Game {
       bobPhase: p.bobPhase,
     }));
 
+    const soloInfo = this.soloMode ? {
+      lives:       this.playerLives,
+      aiRemaining: this.aiShips.filter(ai => ai.alive).length,
+    } : null;
+
     this.broadcast({
       type:    'state',
       tick:    this.tickCount,
       players,
       bullets,
       powerups,
+      soloInfo,
     });
   }
 }

@@ -15,6 +15,8 @@ let myId        = null;
 let currentRoom = null;
 let myShip      = 0;
 let myName      = 'Player';
+let soloMode    = false;
+let lastSoloDiff = 'easy';
 
 // Game state received from server
 let arenaData   = null;
@@ -27,7 +29,7 @@ let rafId = null;
 let lastFrameTime = 0;
 
 // ── State machine ─────────────────────────────────────────────
-const STATES = { MENU: 'menu', LOBBY: 'lobby', COUNTDOWN: 'countdown', PLAYING: 'playing', SCOREBOARD: 'scoreboard' };
+const STATES = { MENU: 'menu', SOLO: 'solo', LOBBY: 'lobby', COUNTDOWN: 'countdown', PLAYING: 'playing', SCOREBOARD: 'scoreboard', SOLO_END: 'solo-end', LEADERBOARD: 'leaderboard' };
 let state = STATES.MENU;
 
 function setState(s) {
@@ -103,6 +105,15 @@ window.addEventListener('DOMContentLoaded', () => {
     setState(STATES.SCOREBOARD);
   });
 
+  net.on('solo_end', (msg) => {
+    stopGameLoop();
+    input.stop();
+    soloMode = false;
+    saveScore(msg);
+    showSoloEnd(msg);
+    setState(STATES.SOLO_END);
+  });
+
   // Game events
   net.on('event', (msg) => handleGameEvent(msg));
 
@@ -111,6 +122,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ── Menu UI ───────────────────────────────────────────────────
 function setupMenuUI() {
+  document.getElementById('btn-solo').addEventListener('click', () => {
+    setState(STATES.SOLO);
+    buildSoloShipGrid();
+    document.getElementById('solo-name').focus();
+  });
+
+  document.getElementById('btn-leaderboard').addEventListener('click', () => {
+    setState(STATES.LEADERBOARD);
+    buildLeaderboard('easy');
+  });
+
   const btnCreate = document.getElementById('btn-create');
   const btnJoin   = document.getElementById('btn-join');
   const createForm = document.getElementById('create-form');
@@ -243,7 +265,186 @@ document.addEventListener('DOMContentLoaded', () => {
     setState(STATES.LOBBY);
     if (currentRoom) updateLobbyUI(currentRoom);
   });
+
+  // Solo screen
+  setupSoloUI();
 });
+
+// ── Solo UI ───────────────────────────────────────────────────
+const DIFF_HINTS = {
+  easy:   '1 enemy  •  slow & inaccurate',
+  medium: '2 enemies •  balanced AI',
+  hard:   '3 enemies •  fast & deadly',
+};
+
+let selectedSoloDiff = 'easy';
+
+function buildSoloShipGrid() {
+  const grid = document.getElementById('solo-ship-grid');
+  grid.innerHTML = '';
+  CONFIG.SHIPS.forEach((ship, i) => {
+    const card = document.createElement('div');
+    card.className = 'ship-card' + (i === myShip ? ' selected' : '');
+    card.dataset.shipId = i;
+
+    const cvs = document.createElement('canvas');
+    cvs.width = 60; cvs.height = 60;
+    card.appendChild(cvs);
+
+    const name = document.createElement('div');
+    name.className = 'ship-name';
+    name.style.color = ship.color;
+    name.textContent = ship.name;
+    card.appendChild(name);
+
+    const stats = document.createElement('div');
+    stats.className = 'ship-stats';
+    stats.innerHTML = `SPD ${ship.speed}<br>SHD ${ship.shield}<br>AMO ${ship.ammo}`;
+    card.appendChild(stats);
+
+    card.addEventListener('click', () => {
+      myShip = i;
+      document.querySelectorAll('#solo-ship-grid .ship-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+
+    grid.appendChild(card);
+    import('./ships.js').then(({ drawShipPreview }) => {
+      drawShipPreview(cvs.getContext('2d'), i, 30, 30, 0);
+    });
+  });
+}
+
+function setupSoloUI() {
+  // Difficulty buttons
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSoloDiff = btn.dataset.diff;
+      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('diff-hint').textContent = DIFF_HINTS[selectedSoloDiff] || '';
+    });
+  });
+  // Select easy by default
+  document.getElementById('diff-easy')?.classList.add('selected');
+  document.getElementById('diff-hint').textContent = DIFF_HINTS.easy;
+
+  document.getElementById('btn-solo-play')?.addEventListener('click', () => {
+    const name = document.getElementById('solo-name').value.trim() || 'Player';
+    myName = name;
+    lastSoloDiff = selectedSoloDiff;
+    soloMode = true;
+    arenaData = null;
+    killFeed = [];
+    activePowerups = [];
+    _pendingStart = true;  // wait for arena message
+    net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff });
+  });
+
+  document.getElementById('btn-back-solo')?.addEventListener('click', () => {
+    setState(STATES.MENU);
+  });
+
+  // Solo end screen
+  document.getElementById('btn-play-again')?.addEventListener('click', () => {
+    setState(STATES.SOLO);
+    buildSoloShipGrid();
+  });
+
+  document.getElementById('btn-solo-end-lb')?.addEventListener('click', () => {
+    setState(STATES.LEADERBOARD);
+    buildLeaderboard(lastSoloDiff);
+  });
+
+  document.getElementById('btn-solo-end-menu')?.addEventListener('click', () => {
+    setState(STATES.MENU);
+  });
+
+  // Leaderboard tabs
+  document.querySelectorAll('.lb-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      buildLeaderboard(tab.dataset.diff);
+    });
+  });
+
+  document.getElementById('btn-back-lb')?.addEventListener('click', () => {
+    setState(STATES.MENU);
+  });
+}
+
+// ── Leaderboard (localStorage) ───────────────────────────────
+const LS_KEY = 'blazechase_scores';
+
+function saveScore(msg) {
+  if (!msg.kills && !msg.score) return;
+  const all = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+  all.push({
+    name:       myName,
+    score:      msg.score || 0,
+    kills:      msg.kills || 0,
+    deaths:     msg.deaths || 0,
+    difficulty: msg.difficulty || 'easy',
+    victory:    !!msg.victory,
+    timestamp:  Date.now(),
+  });
+  // Keep only last 100 entries
+  if (all.length > 100) all.splice(0, all.length - 100);
+  localStorage.setItem(LS_KEY, JSON.stringify(all));
+}
+
+function buildLeaderboard(diff) {
+  const all    = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+  const scores = all.filter(s => s.difficulty === diff)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 10);
+  const tbody  = document.getElementById('lb-body');
+  tbody.innerHTML = '';
+  if (scores.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#555;padding:20px">No scores yet</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+  scores.forEach((s, i) => {
+    const date = new Date(s.timestamp).toLocaleDateString();
+    const tr   = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${s.name}${s.victory ? ' ✓' : ''}</td>
+      <td style="color:#FF6600">${s.score}</td>
+      <td>${s.kills}</td>
+      <td>${s.deaths}</td>
+      <td style="color:#666;font-size:12px">${date}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function showSoloEnd(msg) {
+  const title  = document.getElementById('solo-end-title');
+  const banner = document.getElementById('solo-end-banner');
+  const stats  = document.getElementById('solo-end-stats');
+
+  if (msg.victory) {
+    title.textContent  = 'VICTORY!';
+    title.style.color  = '#FFD700';
+    banner.textContent = '🏆 All enemies defeated!';
+  } else {
+    title.textContent  = 'GAME OVER';
+    title.style.color  = '#FF4444';
+    banner.textContent = 'You ran out of lives.';
+  }
+
+  const diffName = (msg.difficulty || 'easy').toUpperCase();
+  stats.innerHTML = `
+    DIFFICULTY: ${diffName}<br>
+    KILLS: ${msg.kills || 0}<br>
+    DEATHS: ${msg.deaths || 0}<br>
+    SCORE: <span style="color:#FF6600;font-size:20px">${msg.score || 0}</span>
+  `;
+}
 
 // ── Game loop ─────────────────────────────────────────────────
 let _pendingStart = false;

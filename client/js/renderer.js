@@ -100,6 +100,6 @@ export class Renderer {
 
     // ── HUD (screen coords, no camera offset) ───────────────
     const localPlayer = state.players.find(p => p.id === myId);
-    this.hud.draw(ctx, localPlayer, state.players, killFeed, this.time);
+    this.hud.draw(ctx, localPlayer, state.players, killFeed, this.time, state.soloInfo || null);
   }
 }
