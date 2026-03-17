@@ -89,6 +89,11 @@ window.addEventListener('DOMContentLoaded', () => {
     net.clearStateBuffer();
     killFeed = [];
     activePowerups = [];
+    // If countdown already fired, start now
+    if (_pendingStart) {
+      _pendingStart = false;
+      startGame();
+    }
   });
 
   net.on('round_end', (msg) => {
@@ -241,10 +246,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Game loop ─────────────────────────────────────────────────
+let _pendingStart = false;
+
 net.on('countdown', (msg) => {
   if (msg.value === 0) {
-    // Small delay then start game
-    setTimeout(() => startGame(), 400);
+    if (arenaData) {
+      startGame();
+    } else {
+      // Arena message hasn't arrived yet — start as soon as it does
+      _pendingStart = true;
+    }
   }
 });
 
