@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLAZE CHASE</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Config must load before ES modules -->
+  <script src="js/config.js"></script>
+</head>
+<body>
+
+<!-- ── MENU ──────────────────────────────────────────── -->
+<div id="screen-menu" class="screen active">
+  <div class="menu-bg" id="menu-bg-canvas-wrapper">
+    <canvas id="menu-bg-canvas"></canvas>
+  </div>
+  <div class="menu-center">
+    <h1 class="game-title">BLAZE<br><span>CHASE</span></h1>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btn-create">CREATE ROOM</button>
+      <button class="btn btn-secondary" id="btn-join">JOIN ROOM</button>
+    </div>
+    <div id="join-form" class="join-form hidden">
+      <input id="input-code" type="text" maxlength="4" placeholder="ROOM CODE" autocomplete="off" spellcheck="false">
+      <input id="input-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="off">
+      <button class="btn btn-primary" id="btn-join-confirm">JOIN</button>
+    </div>
+    <div id="create-form" class="join-form hidden">
+      <input id="input-name-create" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="off">
+      <button class="btn btn-primary" id="btn-create-confirm">CREATE</button>
+    </div>
+    <div id="menu-error" class="error-msg hidden"></div>
+  </div>
+</div>
+
+<!-- ── LOBBY ─────────────────────────────────────────── -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-wrapper">
+    <div class="lobby-top">
+      <h2>ROOM: <span id="lobby-code" class="room-code">----</span></h2>
+      <p class="lobby-hint">Share this code with your friend</p>
+    </div>
+
+    <div class="lobby-ships">
+      <div class="ship-select-label">CHOOSE YOUR SHIP</div>
+      <div class="ship-grid" id="ship-grid"></div>
+    </div>
+
+    <div class="lobby-players">
+      <div class="players-label">PLAYERS</div>
+      <div id="player-list"></div>
+    </div>
+
+    <div class="lobby-bottom">
+      <button class="btn btn-primary" id="btn-ready">READY</button>
+      <button class="btn btn-back" id="btn-back-lobby">BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── COUNTDOWN ─────────────────────────────────────── -->
+<div id="screen-countdown" class="screen">
+  <div class="countdown-number" id="countdown-num">3</div>
+</div>
+
+<!-- ── GAME ──────────────────────────────────────────── -->
+<div id="screen-game" class="screen">
+  <canvas id="game-canvas"></canvas>
+</div>
+
+<!-- ── SCOREBOARD ────────────────────────────────────── -->
+<div id="screen-scoreboard" class="screen">
+  <div class="scoreboard-wrapper">
+    <h2 id="scoreboard-title">ROUND OVER</h2>
+    <div id="scoreboard-winner" class="winner-banner"></div>
+    <table id="scoreboard-table">
+      <thead><tr><th>#</th><th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr></thead>
+      <tbody id="scoreboard-body"></tbody>
+    </table>
+    <div class="scoreboard-buttons">
+      <button class="btn btn-primary" id="btn-rematch">LOBBY</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts (ES modules) ──────────────────────────── -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
