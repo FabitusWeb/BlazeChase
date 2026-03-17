@@ -238,7 +238,7 @@ html, body {
 }
 
 /* ── Game Canvas ───────────────────────────────────────────── */
-#screen-game { background: #0a0a12; }
+#screen-playing { background: #0a0a12; }
 #game-canvas {
   display: block;
   image-rendering: pixelated;
