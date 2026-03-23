@@ -44,12 +44,11 @@ window.addEventListener('DOMContentLoaded', () => {
   net.connect();
 
   net.on('connected', () => {
-    console.log('Connected to server');
+
   });
 
   net.on('disconnected', () => {
-    console.warn('[BLAZE] DISCONNECTED while state=', state);
-    showMenuError('Disconnected from server. Refresh to reconnect.');
+        showMenuError('Disconnected from server. Refresh to reconnect.');
     if (state !== STATES.MENU) setState(STATES.MENU);
   });
 
@@ -88,7 +87,6 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('arena', (msg) => {
-    console.log('[BLAZE] arena received, _pendingStart=', _pendingStart);
     arenaData = msg;
     net.clearStateBuffer();
     killFeed = [];
@@ -109,7 +107,6 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('solo_end', (msg) => {
-    console.log('[BLAZE] solo_end:', msg);
     stopGameLoop();
     input.stop();
     soloMode = false;
@@ -347,7 +344,6 @@ function setupSoloUI() {
     killFeed = [];
     activePowerups = [];
     _pendingStart = true;  // wait for arena message
-    console.log('[BLAZE] sending play_solo, ship=', myShip, 'diff=', selectedSoloDiff);
     if (!net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff })) {
       showMenuError('Connection lost. Refresh to reconnect.');
       soloMode = false;
@@ -361,7 +357,6 @@ function setupSoloUI() {
     if (_soloTimeout) clearTimeout(_soloTimeout);
     _soloTimeout = setTimeout(() => {
       if (_pendingStart) {
-        console.error('[BLAZE] arena timeout — server did not respond');
         _pendingStart = false;
         soloMode = false;
         showMenuError('Server not responding. Try again.');

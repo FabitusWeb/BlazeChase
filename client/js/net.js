@@ -13,15 +13,12 @@ export class NetClient {
   }
 
   connect() {
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const url     = isLocal
-      ? `ws://localhost:${CONFIG.WS_PORT}`
-      : 'wss://blazechase-ws.zusho.it';
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url   = `${proto}://${location.host}`;
 
     this.ws = new WebSocket(url);
 
     this.ws.addEventListener('open', () => {
-      console.log('[BLAZE] WebSocket connected to', url);
       this.connected = true;
       this._emit('connected');
     });
@@ -38,13 +35,15 @@ export class NetClient {
     this.ws.addEventListener('message', (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.type !== 'state') console.log('[BLAZE] recv:', msg.type);
       this._handleMessage(msg);
     });
   }
 
   _handleMessage(msg) {
     switch (msg.type) {
+      case 'ping':
+        this.send({ type: 'pong' });
+        return;
       case 'state':
         this.stateBuffer.push({ ...msg, timestamp: performance.now() });
         if (this.stateBuffer.length > 8) this.stateBuffer.shift();

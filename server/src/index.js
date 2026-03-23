@@ -150,9 +150,8 @@ wss.on('connection', (ws) => {
 
   send(ws, { type: 'welcome', id });
 
-  // Heartbeat
+  // Heartbeat (applicativo — i ping/pong WS nativi non passano attraverso alcuni proxy)
   ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
 
   // Rate limiting state
   let msgCount = 0;
@@ -174,6 +173,7 @@ wss.on('connection', (ws) => {
     if (!client) return;
 
     switch (msg.type) {
+      case 'pong':       ws.isAlive = true; break;
       case 'join':       handleJoin(ws, client, msg); break;
       case 'ready':      handleReady(ws, client); break;
       case 'input':      handleInput(ws, client, msg); break;
@@ -322,7 +322,6 @@ function handlePlaySolo(ws, client, msg) {
     // Start game immediately — no countdown
     const players = [{ id: client.id, name, ship }];
     room.game = new Game(room, players, (m) => broadcastRoom(room, m), { soloMode: true, difficulty });
-    console.log(`[SOLO] starting game for ${name}, ship=${ship}, diff=${difficulty}, room=${code}`);
     room.game.start();
   } catch (err) {
     console.error('[SOLO] failed to start game:', err);
@@ -339,7 +338,7 @@ const heartbeatInterval = setInterval(() => {
   for (const ws of wss.clients) {
     if (!ws.isAlive) { ws.terminate(); continue; }
     ws.isAlive = false;
-    ws.ping();
+    send(ws, { type: 'ping' });
   }
 }, CONFIG.HEARTBEAT_INTERVAL);
 
