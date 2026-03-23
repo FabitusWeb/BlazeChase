@@ -48,6 +48,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('disconnected', () => {
+    console.warn('[BLAZE] DISCONNECTED while state=', state);
     showMenuError('Disconnected from server. Refresh to reconnect.');
     if (state !== STATES.MENU) setState(STATES.MENU);
   });
@@ -108,10 +109,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('solo_end', (msg) => {
+    console.log('[BLAZE] solo_end:', msg);
     stopGameLoop();
     input.stop();
     soloMode = false;
-    saveScore(msg);
+    try { saveScore(msg); } catch (e) { console.warn('saveScore error:', e); }
     showSoloEnd(msg);
     setState(STATES.SOLO_END);
   });
