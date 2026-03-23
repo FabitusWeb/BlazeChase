@@ -109,7 +109,9 @@ export class NetClient {
   send(msg) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+      return true;
     }
+    return false;
   }
 
   clearStateBuffer() {

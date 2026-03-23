@@ -151,11 +151,13 @@ function setupMenuUI() {
   });
 
   document.getElementById('btn-create-confirm').addEventListener('click', () => {
+    if (!net.connected) { showMenuError('Not connected to server. Please wait...'); return; }
     myName = document.getElementById('input-name-create').value.trim() || 'Player';
     net.send({ type: 'join', name: myName, ship: myShip });
   });
 
   document.getElementById('btn-join-confirm').addEventListener('click', () => {
+    if (!net.connected) { showMenuError('Not connected to server. Please wait...'); return; }
     const code = document.getElementById('input-code').value.toUpperCase().trim();
     myName = document.getElementById('input-name').value.trim() || 'Player';
     if (!code || code.length !== 4) { showMenuError('Enter a 4-letter room code'); return; }
@@ -330,6 +332,7 @@ function setupSoloUI() {
   document.getElementById('diff-hint').textContent = DIFF_HINTS.easy;
 
   document.getElementById('btn-solo-play')?.addEventListener('click', () => {
+    if (!net.connected) { showMenuError('Not connected to server. Please wait...'); return; }
     const name = document.getElementById('solo-name').value.trim() || 'Player';
     myName = name;
     lastSoloDiff = selectedSoloDiff;
@@ -338,7 +341,15 @@ function setupSoloUI() {
     killFeed = [];
     activePowerups = [];
     _pendingStart = true;  // wait for arena message
-    net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff });
+    if (!net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff })) {
+      showMenuError('Connection lost. Refresh to reconnect.');
+      soloMode = false;
+      _pendingStart = false;
+      return;
+    }
+    // Feedback visivo: mostra countdown
+    setState(STATES.COUNTDOWN);
+    document.getElementById('countdown-num').textContent = '...';
   });
 
   document.getElementById('btn-back-solo')?.addEventListener('click', () => {
