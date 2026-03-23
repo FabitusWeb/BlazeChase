@@ -117,7 +117,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   // Game events
-  net.on('event', (msg) => handleGameEvent(msg));
+  net.on('event', (msg) => {
+    try { handleGameEvent(msg); } catch (e) { console.error('[BLAZE] event handler crash:', e, 'msg:', msg); }
+  });
 
   setState(STATES.MENU);
 });
@@ -515,30 +517,36 @@ function resizeCanvas(canvas) {
 }
 
 function gameLoop(now) {
-  const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
-  lastFrameTime = now;
+  try {
+    const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = now;
 
-  // Get keys
-  const keys = input.get();
-  input.flush();
+    // Get keys
+    const keys = input.get();
+    input.flush();
 
-  // Send input to server
-  net.send({ type: 'input', keys });
+    // Send input to server
+    net.send({ type: 'input', keys });
 
-  // Get latest interpolated state
-  const s = net.getInterpolatedState();
-  if (s) gameState = s;
+    // Get latest interpolated state
+    const s = net.getInterpolatedState();
+    if (s) gameState = s;
 
-  if (gameState && renderer) {
-    // Update kill feed timers
-    killFeed = killFeed.filter(k => { k.timer -= dt; return k.timer > 0; });
+    if (gameState && renderer) {
+      // Update kill feed timers
+      killFeed = killFeed.filter(k => { k.timer -= dt; return k.timer > 0; });
 
-    // Update active powerup timers
-    activePowerups = activePowerups.filter(p => { p.timer -= dt; return p.timer > 0; });
+      // Update active powerup timers
+      activePowerups = activePowerups.filter(p => { p.timer -= dt; return p.timer > 0; });
 
-    const myPlayer = gameState.players.find(p => p.id === myId);
-
-    renderer.frame(dt, gameState, myId, killFeed, activePowerups);
+      renderer.frame(dt, gameState, myId, killFeed, activePowerups);
+    }
+  } catch (e) {
+    console.error('[BLAZE] gameLoop crash:', e);
+    stopGameLoop();
+    showMenuError('Game crashed: ' + e.message);
+    setState(STATES.MENU);
+    return;
   }
 
   if (state === STATES.PLAYING) {
