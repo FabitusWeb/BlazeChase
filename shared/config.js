@@ -14,8 +14,8 @@ const CONFIG = {
   TILE_SIZE: 40,
   ARENA_COLS: 40,
   ARENA_ROWS: 30,
-  get ARENA_WIDTH()  { return this.TILE_SIZE * this.ARENA_COLS; },  // 1600
-  get ARENA_HEIGHT() { return this.TILE_SIZE * this.ARENA_ROWS; },  // 1200
+  ARENA_WIDTH:  40 * 40,   // TILE_SIZE * ARENA_COLS = 1600
+  ARENA_HEIGHT: 40 * 30,   // TILE_SIZE * ARENA_ROWS = 1200
   VIEWPORT_W: 800,
   VIEWPORT_H: 600,
 
@@ -107,4 +107,6 @@ const CONFIG = {
 // Works in both Node (CommonJS) and browser (window.CONFIG set via script tag)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CONFIG;
+} else if (typeof window !== 'undefined') {
+  window.CONFIG = CONFIG;
 }

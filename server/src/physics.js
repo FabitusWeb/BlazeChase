@@ -118,11 +118,12 @@ function updateShip(ship, input, dt, arena) {
   ship.onAcid   = (tileUnder === TILE.ACID);
   ship.onRefuel = (tileUnder === TILE.REFUEL);
 
+  ship.acidKill = false;
   if (ship.onAcid && !ship.invulnerable) {
     ship.shield -= CONFIG.ACID_DAMAGE * dt;
     if (ship.shield <= 0) {
       ship.shield = 0;
-      ship.onAcid = false;
+      ship.acidKill = true;
     }
   }
 

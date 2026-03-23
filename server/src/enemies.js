@@ -221,7 +221,6 @@ function _tryShoot(ai, target, input, diff, dt, newBullets) {
   // Aim with spread based on difficulty
   const aimAngle = ai.angle + (Math.random() - 0.5) * diff.aimSpread * 2;
 
-  const { v4: uuidv4 } = require('uuid');
   newBullets.push({
     id:       Math.floor(Math.random() * 1e9),
     ownerId:  ai.id,

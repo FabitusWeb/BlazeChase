@@ -65,8 +65,9 @@ class Game {
     // Power-up spawn timers (one per spot)
     this.spawnTimers = this.arena.powerupSpots.map(() => 5 + Math.random() * 10);
 
-    this._intervalId = null;
-    this._lastTime   = null;
+    this._intervalId  = null;
+    this._lastTime    = null;
+    this._endTimeout  = null;
   }
 
   start() {
@@ -91,6 +92,10 @@ class Game {
     if (this._intervalId) {
       clearInterval(this._intervalId);
       this._intervalId = null;
+    }
+    if (this._endTimeout) {
+      clearTimeout(this._endTimeout);
+      this._endTimeout = null;
     }
   }
 
@@ -149,12 +154,21 @@ class Game {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
       updateShip(ship, input, dt, this.arena);
+      if (ship.acidKill) {
+        this._killShip(ship, null, null);
+      }
     }
 
     // ── Update AI ships ────────────────────────────────────
     if (this.soloMode && this.aiShips.length > 0) {
       const aiBullets = updateAI(this.aiShips, this.ships, this.arena, dt);
       this.bullets.push(...aiBullets);
+      // Check acid kills on AI ships
+      for (const ai of this.aiShips) {
+        if (ai.alive && ai.acidKill) {
+          this._killShip(ai, null, null);
+        }
+      }
     }
 
     // ── Ship-ship collision ────────────────────────────────
@@ -325,7 +339,7 @@ class Game {
           winnerName: ship.name,
           scores,
         });
-        setTimeout(() => {
+        this._endTimeout = setTimeout(() => {
           if (!this.running) return;
           this.stop();
           this.room.state = 'lobby';
@@ -344,7 +358,7 @@ class Game {
     const deaths = humanShip?.deaths || 0;
     const score  = kills * (SOLO_SCORE_MULT[this.soloDiff] || 1);
     this.broadcast({ type: 'solo_end', victory, score, kills, deaths, difficulty: this.soloDiff, livesLeft: this.playerLives });
-    setTimeout(() => {
+    this._endTimeout = setTimeout(() => {
       if (!this.running) return;
       this.stop();
       this.room.state = 'lobby';

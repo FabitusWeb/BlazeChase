@@ -15,6 +15,7 @@ const PORT = process.env.PORT || CONFIG.WS_PORT;
 // ── Static file serving ──────────────────────────────────────────────────────
 
 const CLIENT_DIR = path.resolve(__dirname, '../../client');
+const SHARED_CONFIG = path.resolve(__dirname, '../../shared/config.js');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +29,16 @@ const MIME = {
 const httpServer = http.createServer((req, res) => {
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
+
+  // Serve shared config directly to client — single source of truth
+  if (urlPath === '/js/config.js') {
+    fs.readFile(SHARED_CONFIG, (err, data) => {
+      if (err) { res.writeHead(500); res.end('Config not found'); return; }
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+    return;
+  }
 
   const filePath = path.join(CLIENT_DIR, urlPath);
   // Security: prevent path traversal
@@ -129,6 +140,10 @@ function removeClientFromRoom(ws) {
 
 const wss = new WebSocketServer({ server: httpServer });
 
+// Rate limiting: max messages per second per client
+const RATE_LIMIT = CONFIG.TICK_RATE * 2; // 120 msg/s generous cap
+const RATE_WINDOW = 1000; // 1 second window
+
 wss.on('connection', (ws) => {
   const id = uuidv4();
   clients.set(ws, { id, name: 'Player', ship: 0, roomCode: null, ready: false });
@@ -139,7 +154,19 @@ wss.on('connection', (ws) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
+  // Rate limiting state
+  let msgCount = 0;
+  let windowStart = Date.now();
+
   ws.on('message', (raw) => {
+    // Rate limit check
+    const now = Date.now();
+    if (now - windowStart > RATE_WINDOW) {
+      msgCount = 0;
+      windowStart = now;
+    }
+    if (++msgCount > RATE_LIMIT) return; // silently drop
+
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 

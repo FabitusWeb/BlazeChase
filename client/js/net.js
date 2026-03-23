@@ -14,9 +14,10 @@ export class NetClient {
 
   connect() {
     const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const proto   = location.protocol === 'https:' ? 'wss' : 'ws';
     const url     = isLocal
       ? `ws://localhost:${CONFIG.WS_PORT}`
-      : `wss://blazechase-ws.zusho.it`;
+      : `${proto}://${location.host}`;
 
     this.ws = new WebSocket(url);
 
