@@ -87,14 +87,16 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('arena', (msg) => {
+    console.log('[BLAZE] arena received, _pendingStart=', _pendingStart);
     arenaData = msg;
     net.clearStateBuffer();
     killFeed = [];
     activePowerups = [];
-    // If countdown already fired, start now
+    if (_soloTimeout) { clearTimeout(_soloTimeout); _soloTimeout = null; }
+    // If countdown already fired or solo waiting, start now
     if (_pendingStart) {
       _pendingStart = false;
-      startGame();
+      try { startGame(); } catch (e) { console.error('[BLAZE] startGame error:', e); showMenuError('Game start error: ' + e.message); setState(STATES.MENU); }
     }
   });
 
@@ -341,6 +343,7 @@ function setupSoloUI() {
     killFeed = [];
     activePowerups = [];
     _pendingStart = true;  // wait for arena message
+    console.log('[BLAZE] sending play_solo, ship=', myShip, 'diff=', selectedSoloDiff);
     if (!net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff })) {
       showMenuError('Connection lost. Refresh to reconnect.');
       soloMode = false;
@@ -350,6 +353,18 @@ function setupSoloUI() {
     // Feedback visivo: mostra countdown
     setState(STATES.COUNTDOWN);
     document.getElementById('countdown-num').textContent = '...';
+    // Timeout: se arena non arriva entro 5s, torna al menu
+    if (_soloTimeout) clearTimeout(_soloTimeout);
+    _soloTimeout = setTimeout(() => {
+      if (_pendingStart) {
+        console.error('[BLAZE] arena timeout — server did not respond');
+        _pendingStart = false;
+        soloMode = false;
+        showMenuError('Server not responding. Try again.');
+        setState(STATES.SOLO);
+        buildSoloShipGrid();
+      }
+    }, 5000);
   });
 
   document.getElementById('btn-back-solo')?.addEventListener('click', () => {
@@ -459,6 +474,7 @@ function showSoloEnd(msg) {
 
 // ── Game loop ─────────────────────────────────────────────────
 let _pendingStart = false;
+let _soloTimeout  = null;
 
 net.on('countdown', (msg) => {
   if (msg.value === 0) {

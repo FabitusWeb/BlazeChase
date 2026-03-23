@@ -21,6 +21,7 @@ export class NetClient {
     this.ws = new WebSocket(url);
 
     this.ws.addEventListener('open', () => {
+      console.log('[BLAZE] WebSocket connected to', url);
       this.connected = true;
       this._emit('connected');
     });
@@ -37,6 +38,7 @@ export class NetClient {
     this.ws.addEventListener('message', (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type !== 'state') console.log('[BLAZE] recv:', msg.type);
       this._handleMessage(msg);
     });
   }

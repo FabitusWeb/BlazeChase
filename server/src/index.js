@@ -310,18 +310,24 @@ function handlePlaySolo(ws, client, msg) {
   // Leave any previous room
   if (client.roomCode) removeClientFromRoom(ws);
 
-  // Create a private solo room
-  const code = generateRoomCode();
-  const room = { code, hostId: client.id, players: new Map(), game: null, state: 'playing', soloRoom: true };
-  room.players.set(client.id, ws);
-  rooms.set(code, room);
-  client.roomCode = code;
-  client.ready    = false;
+  try {
+    // Create a private solo room
+    const code = generateRoomCode();
+    const room = { code, hostId: client.id, players: new Map(), game: null, state: 'playing', soloRoom: true };
+    room.players.set(client.id, ws);
+    rooms.set(code, room);
+    client.roomCode = code;
+    client.ready    = false;
 
-  // Start game immediately — no countdown
-  const players = [{ id: client.id, name, ship }];
-  room.game = new Game(room, players, (m) => broadcastRoom(room, m), { soloMode: true, difficulty });
-  room.game.start();
+    // Start game immediately — no countdown
+    const players = [{ id: client.id, name, ship }];
+    room.game = new Game(room, players, (m) => broadcastRoom(room, m), { soloMode: true, difficulty });
+    console.log(`[SOLO] starting game for ${name}, ship=${ship}, diff=${difficulty}, room=${code}`);
+    room.game.start();
+  } catch (err) {
+    console.error('[SOLO] failed to start game:', err);
+    send(ws, { type: 'error', msg: 'Failed to start solo game' });
+  }
 }
 
 // Expose callback so Game can call it on round end
