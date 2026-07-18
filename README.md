@@ -14,6 +14,14 @@ Open **http://localhost:3080** in two browser tabs.
 - Tab 2 → **Join Room** → enter code
 - Both select ship → **Ready** → countdown → fight
 
+## Single player
+
+Three modes under **SINGLE PLAYER**:
+
+- **SKIRMISH** — free deathmatch vs AI (pick arena + difficulty)
+- **MISSIONS** — 6 handcrafted objectives (eliminate / survive / destroy turrets); progress saved locally
+- **ENDLESS** — escalating AI waves, 3 lives; high score + wave reached saved locally
+
 ## Controls
 
 | Key | Action |

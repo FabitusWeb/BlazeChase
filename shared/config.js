@@ -69,22 +69,51 @@ const CONFIG = {
 
   // ── Weapons ──────────────────────────────────────────────
   // fireRate=s between shots, ammoCost per shot, damage per bullet, speed px/s
+  // pickupAmmo: ammo granted by the WEAPON powerup; -1 ammo in inventory = infinite
+  // aoe: {radius, damage} explodes on impact; beam: hitscan {length}; lay: 'mine'
   WEAPONS: [
-    { id: 0, name: 'BLASTER', color: '#FFFF44', fireRate: 0.15, ammoCost: 1,  damage: 8,  speed: 620, size: 4,  count: 1, spread: 0,    homing: false },
-    { id: 1, name: 'DOUBLE',  color: '#44FFFF', fireRate: 0.18, ammoCost: 2,  damage: 7,  speed: 570, size: 4,  count: 2, spread: 0,    homing: false },
-    { id: 2, name: 'SPREAD',  color: '#44FF44', fireRate: 0.25, ammoCost: 3,  damage: 6,  speed: 520, size: 3,  count: 3, spread: 0.26, homing: false },
-    { id: 3, name: 'MISSILE', color: '#FF8800', fireRate: 0.60, ammoCost: 8,  damage: 30, speed: 360, size: 8,  count: 1, spread: 0,    homing: true  },
-    { id: 4, name: 'RAPID',   color: '#FF44AA', fireRate: 0.07, ammoCost: 1,  damage: 4,  speed: 720, size: 3,  count: 1, spread: 0.05, homing: false },
-    { id: 5, name: 'PLASMA',  color: '#BB44FF', fireRate: 0.40, ammoCost: 5,  damage: 20, speed: 460, size: 10, count: 1, spread: 0,    homing: false },
+    { id: 0,  name: 'BLASTER',      color: '#FFFF44', fireRate: 0.15, ammoCost: 1, damage: 8,  speed: 620, size: 4,  count: 1, spread: 0,    homing: false, infinite: true },
+    { id: 1,  name: 'DOUBLE',       color: '#44FFFF', fireRate: 0.18, ammoCost: 2, damage: 7,  speed: 570, size: 4,  count: 2, spread: 0,    homing: false, pickupAmmo: 100 },
+    { id: 2,  name: 'SPREAD',       color: '#44FF44', fireRate: 0.25, ammoCost: 3, damage: 6,  speed: 520, size: 3,  count: 3, spread: 0.26, homing: false, pickupAmmo: 90  },
+    { id: 3,  name: 'MISSILE',      color: '#FF8800', fireRate: 0.60, ammoCost: 1, damage: 30, speed: 360, size: 8,  count: 1, spread: 0,    homing: true,  pickupAmmo: 12  },
+    { id: 4,  name: 'MACHINE GUN',  color: '#FF44AA', fireRate: 0.07, ammoCost: 1, damage: 4,  speed: 720, size: 3,  count: 1, spread: 0.05, homing: false, pickupAmmo: 300 },
+    { id: 5,  name: 'PLASMA',       color: '#BB44FF', fireRate: 0.40, ammoCost: 5, damage: 20, speed: 460, size: 10, count: 1, spread: 0,    homing: false, pickupAmmo: 40  },
+    { id: 6,  name: 'MORTAR',       color: '#FFAA33', fireRate: 0.50, ammoCost: 1, damage: 12, speed: 420, size: 6,  count: 1, spread: 0,    homing: false, aoe: { radius: 60,  damage: 25 }, pickupAmmo: 20 },
+    { id: 7,  name: 'MACRO MORTAR', color: '#FF5522', fireRate: 0.90, ammoCost: 1, damage: 20, speed: 520, size: 9,  count: 1, spread: 0,    homing: false, aoe: { radius: 110, damage: 50 }, pickupAmmo: 8  },
+    { id: 8,  name: 'CHARGE ROCKET',color: '#FFDD66', fireRate: 0.45, ammoCost: 1, damage: 10, speed: 380, size: 5,  count: 1, spread: 0.12, homing: false, erratic: true, aoe: { radius: 50, damage: 20 }, pickupAmmo: 24 },
+    { id: 9,  name: 'LASER CANNON', color: '#FF2222', fireRate: 0.10, ammoCost: 2, damage: 6,  speed: 0,   size: 3,  count: 1, spread: 0,    homing: false, beam: { length: 420 }, pickupAmmo: 120 },
+    { id: 10, name: 'MINES',        color: '#CCCCCC', fireRate: 0.60, ammoCost: 1, damage: 0,  speed: 0,   size: 6,  count: 1, spread: 0,    homing: false, lay: 'mine', pickupAmmo: 10 },
   ],
+
+  // ── Mines (laid by weapon 10) ─────────────────────────────
+  MINE: {
+    TRIGGER_RADIUS: 50,   // proximity trigger (any ship, owner included)
+    AOE_RADIUS:     70,
+    AOE_DAMAGE:     35,
+    ARM_TIME:       0.8,  // seconds before the mine becomes live
+    MAX_PER_SHIP:   5,    // oldest mine is dropped beyond this
+  },
+
+  // ── Environmental hazards (arena-placed) ──────────────────
+  HAZARDS: {
+    TURRET_MISSILE: { HP: 60, RANGE: 420, FIRE_RATE: 1.6, BULLET_SPEED: 300, DAMAGE: 18, HOMING: true },
+    TURRET_MORTAR:  { HP: 60, RANGE: 380, FIRE_RATE: 2.4, BULLET_SPEED: 260, DAMAGE: 10, AOE: { radius: 55, damage: 20 } },
+    BLACKHOLE: { PULL_RADIUS: 220, PULL_FORCE: 260, DAMAGE_RADIUS: 34, DPS: 25 },
+    WAVE: { INTERVAL: 18, SPEED: 140, WIDTH: 60, DAMAGE: 20, PUSH: 320 },
+  },
 
   // ── Power-ups ─────────────────────────────────────────────
   POWERUPS: [
-    { id: 0, name: 'SHIELD',   color: '#00AAFF', icon: 'S', effect: 'shield',   value: 30  },
-    { id: 1, name: 'AMMO',     color: '#FFAA00', icon: 'A', effect: 'ammo',     value: 60  },
-    { id: 2, name: 'WEAPON',   color: '#FF44FF', icon: 'W', effect: 'weapon',   value: 0   },
-    { id: 3, name: 'PSHIELD',  color: '#4444FF', icon: 'P', effect: 'pshield',  value: 8   }, // 8s duration
-    { id: 4, name: 'SPEED',    color: '#44FF44', icon: 'V', effect: 'speed',    value: 5   }, // 5s duration
+    { id: 0, name: 'SHIELD',   color: '#00AAFF', icon: 'S', effect: 'shield',     value: 30 },
+    { id: 1, name: 'AMMO',     color: '#FFAA00', icon: 'A', effect: 'ammo',       value: 60 },
+    { id: 2, name: 'WEAPON',   color: '#FF44FF', icon: 'W', effect: 'weapon',     value: 0  },
+    { id: 3, name: 'PSHIELD',  color: '#4444FF', icon: 'P', effect: 'pshield',    value: 1  }, // absorb pool = 1× ship max shield
+    { id: 4, name: 'SPEED',    color: '#44FF44', icon: 'V', effect: 'speed',      value: 5  }, // 5s duration
+    { id: 5, name: 'SEEKING',  color: '#FF0066', icon: 'H', effect: 'seeking',    value: 10 }, // 10s duration
+    { id: 6, name: 'DOUBLE',   color: '#44FFFF', icon: 'D', effect: 'doubleshot', value: 10 }, // 10s duration
+    { id: 7, name: 'TRIPLE',   color: '#44FF44', icon: 'T', effect: 'tripleshot', value: 10 }, // 10s duration
+    { id: 8, name: 'RAPID',    color: '#FF44AA', icon: 'R', effect: 'rapidfire',  value: 10 }, // 10s duration
+    { id: 9, name: 'PSHIELD2', color: '#2222CC', icon: 'Q', effect: 'pshield2',   value: 2  }, // absorb pool = 2× ship max shield
   ],
   POWERUP_LIFETIME:    15,   // seconds before disappearing
   POWERUP_RESPAWN:     20,   // seconds between spawns at fixed spots

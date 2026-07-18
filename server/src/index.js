@@ -9,6 +9,13 @@ const { WebSocketServer, WebSocket } = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const CONFIG = require('./config');
 const Game   = require('./game');
+const { arenaList } = require('./arenas');
+const { getMission, missionList } = require('./missions');
+
+// Valid arena ids for selection messages ('random' = procedural)
+const ARENA_IDS = new Set(['random', ...arenaList().map(a => a.id)]);
+// Valid solo sub-modes
+const SOLO_MODES = new Set(['skirmish', 'mission', 'endless']);
 
 const PORT = process.env.PORT || CONFIG.WS_PORT;
 
@@ -99,7 +106,7 @@ function lobbySnapshot(room) {
     const c = clients.get(ws);
     if (c) players.push({ id, name: c.name, ship: c.ship, ready: c.ready });
   }
-  return { type: 'lobby', players, hostId: room.hostId, code: room.code };
+  return { type: 'lobby', players, hostId: room.hostId, code: room.code, arenaId: room.arenaId || 'random' };
 }
 
 function removeClientFromRoom(ws) {
@@ -112,6 +119,7 @@ function removeClientFromRoom(ws) {
   room.players.delete(client.id);
 
   if (room.players.size === 0) {
+    if (room._countdownTimer) { clearInterval(room._countdownTimer); room._countdownTimer = null; }
     if (room.game) room.game.stop();
     rooms.delete(room.code);
     return;
@@ -120,6 +128,15 @@ function removeClientFromRoom(ws) {
   // Transfer host if needed
   if (room.hostId === client.id) {
     room.hostId = room.players.keys().next().value;
+  }
+
+  // Cancel countdown if one was running — remaining players must re-ready
+  if (room.state === 'countdown') {
+    cancelCountdown(room);
+    for (const [, rws] of room.players) {
+      const rc = clients.get(rws);
+      if (rc) rc.ready = false;
+    }
   }
 
   // Stop game if in progress
@@ -148,7 +165,7 @@ wss.on('connection', (ws) => {
   const id = uuidv4();
   clients.set(ws, { id, name: 'Player', ship: 0, roomCode: null, ready: false });
 
-  send(ws, { type: 'welcome', id });
+  send(ws, { type: 'welcome', id, arenas: arenaList(), missions: missionList() });
 
   // Heartbeat (applicativo — i ping/pong WS nativi non passano attraverso alcuni proxy)
   ws.isAlive = true;
@@ -178,6 +195,7 @@ wss.on('connection', (ws) => {
       case 'ready':      handleReady(ws, client); break;
       case 'input':      handleInput(ws, client, msg); break;
       case 'ship_select':handleShipSelect(ws, client, msg); break;
+      case 'arena_select': handleArenaSelect(ws, client, msg); break;
       case 'rematch':    handleRematch(ws, client); break;
       case 'play_solo':  handlePlaySolo(ws, client, msg); break;
     }
@@ -211,12 +229,12 @@ function handleJoin(ws, client, msg) {
     // Join existing room
     room = rooms.get(code);
     if (!room) { send(ws, { type: 'error', msg: 'Room not found' }); return; }
-    if (room.state === 'playing') { send(ws, { type: 'error', msg: 'Game in progress' }); return; }
+    if (room.state !== 'lobby') { send(ws, { type: 'error', msg: 'Game in progress' }); return; }
     if (room.players.size >= 4) { send(ws, { type: 'error', msg: 'Room full' }); return; }
   } else {
     // Create new room
     const newCode = generateRoomCode();
-    room = { code: newCode, hostId: client.id, players: new Map(), game: null, state: 'lobby' };
+    room = { code: newCode, hostId: client.id, players: new Map(), game: null, state: 'lobby', arenaId: 'random' };
     rooms.set(newCode, room);
   }
 
@@ -235,19 +253,41 @@ function handleShipSelect(ws, client, msg) {
   client.ship = ship;
   client.ready = false;
   const room = rooms.get(client.roomCode);
-  if (room) broadcastRoom(room, lobbySnapshot(room));
+  if (room) {
+    // Changing ship during countdown cancels it
+    if (room.state === 'countdown') cancelCountdown(room);
+    broadcastRoom(room, lobbySnapshot(room));
+  }
+}
+
+function handleArenaSelect(ws, client, msg) {
+  const room = rooms.get(client.roomCode);
+  if (!room || room.state !== 'lobby') return;
+  if (room.hostId !== client.id) return;   // host only
+  const arenaId = String(msg.arenaId || '');
+  if (!ARENA_IDS.has(arenaId)) return;
+  room.arenaId = arenaId;
+  broadcastRoom(room, lobbySnapshot(room));
 }
 
 function handleReady(ws, client) {
   const room = rooms.get(client.roomCode);
-  if (!room || room.state !== 'lobby') return;
+  if (!room || (room.state !== 'lobby' && room.state !== 'countdown')) return;
+
+  // Toggle: if already ready, un-ready (and cancel any running countdown)
+  if (client.ready) {
+    client.ready = false;
+    if (room.state === 'countdown') cancelCountdown(room);
+    broadcastRoom(room, lobbySnapshot(room));
+    return;
+  }
 
   client.ready = true;
   broadcastRoom(room, lobbySnapshot(room));
 
   // Check if all players are ready (minimum 1 player allowed for testing)
   const allReady = [...room.players.values()].every(pws => clients.get(pws)?.ready);
-  if (allReady && room.players.size >= 1) {
+  if (allReady && room.players.size >= 1 && room.state === 'lobby') {
     startCountdown(room);
   }
 }
@@ -258,14 +298,26 @@ function startCountdown(room) {
 
   broadcastRoom(room, { type: 'countdown', value: count });
 
-  const tick = setInterval(() => {
+  room._countdownTimer = setInterval(() => {
     count--;
     broadcastRoom(room, { type: 'countdown', value: count });
     if (count <= 0) {
-      clearInterval(tick);
+      clearInterval(room._countdownTimer);
+      room._countdownTimer = null;
       startGame(room);
     }
   }, 1000);
+}
+
+function cancelCountdown(room) {
+  if (room._countdownTimer) {
+    clearInterval(room._countdownTimer);
+    room._countdownTimer = null;
+  }
+  if (room.state === 'countdown') {
+    room.state = 'lobby';
+    broadcastRoom(room, { type: 'countdown_cancel' });
+  }
 }
 
 function startGame(room) {
@@ -278,7 +330,7 @@ function startGame(room) {
     if (c) players.push({ id, name: c.name, ship: c.ship });
   }
 
-  room.game = new Game(room, players, (msg) => broadcastRoom(room, msg));
+  room.game = new Game(room, players, (msg) => broadcastRoom(room, msg), { arenaId: room.arenaId || 'random' });
   room.game.start();
 }
 
@@ -303,6 +355,11 @@ function handlePlaySolo(ws, client, msg) {
   const name       = String(msg.name || 'Player').slice(0, 16).trim() || 'Player';
   const ship       = Math.max(0, Math.min(CONFIG.SHIPS.length - 1, parseInt(msg.ship) || 0));
   const difficulty = ['easy', 'medium', 'hard'].includes(msg.difficulty) ? msg.difficulty : 'easy';
+  const arenaId    = ARENA_IDS.has(msg.arenaId) ? msg.arenaId : 'random';
+  const mode       = SOLO_MODES.has(msg.mode) ? msg.mode : 'skirmish';
+  // Mission mode requires a valid mission; it also fixes arena + difficulty
+  const mission    = mode === 'mission' ? getMission(String(msg.missionId || '')) : null;
+  const gameMode   = mode === 'mission' && !mission ? 'skirmish' : mode;
 
   client.name = name;
   client.ship = ship;
@@ -321,7 +378,13 @@ function handlePlaySolo(ws, client, msg) {
 
     // Start game immediately — no countdown
     const players = [{ id: client.id, name, ship }];
-    room.game = new Game(room, players, (m) => broadcastRoom(room, m), { soloMode: true, difficulty });
+    room.game = new Game(room, players, (m) => broadcastRoom(room, m), {
+      soloMode: true,
+      difficulty,
+      arenaId:  mission ? mission.arenaId : arenaId,
+      mode:     gameMode,
+      missionId: mission ? mission.id : null,
+    });
     room.game.start();
   } catch (err) {
     console.error('[SOLO] failed to start game:', err);

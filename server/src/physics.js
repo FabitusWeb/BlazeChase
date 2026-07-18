@@ -34,8 +34,15 @@ function updateShip(ship, input, dt, arena) {
   if (ship.dodgeCooldown > 0) ship.dodgeCooldown -= dt;
   if (ship.invulnTimer  > 0) ship.invulnTimer  -= dt;
   if (ship.hitFlashTimer > 0) ship.hitFlashTimer -= dt;
-  if (ship.pshieldTimer > 0) ship.pshieldTimer -= dt;
   if (ship.speedBoostTimer > 0) ship.speedBoostTimer -= dt;
+
+  // Weapon modifier timers (seconds remaining)
+  if (ship.modifiers) {
+    if (ship.modifiers.seeking    > 0) ship.modifiers.seeking    -= dt;
+    if (ship.modifiers.doubleshot > 0) ship.modifiers.doubleshot -= dt;
+    if (ship.modifiers.tripleshot > 0) ship.modifiers.tripleshot -= dt;
+    if (ship.modifiers.rapidfire  > 0) ship.modifiers.rapidfire  -= dt;
+  }
 
   ship.dashing = ship.dashTimer > 0;
   ship.dodging = ship.dodgeTimer > 0;
@@ -251,11 +258,13 @@ function respawnShip(ship, arena) {
   ship.alive = true;
   ship.invulnTimer = CONFIG.RESPAWN_INVULN;
   ship.invulnerable = true;
-  // Restore ship to full shield/ammo on respawn
+  // Restore ship to full shield/ammo on respawn (weapon inventory is kept)
   const def = CONFIG.SHIPS[ship.shipId];
   ship.shield = def.shield;
   ship.ammo   = def.ammo;
   ship.weapon = 0; // Reset to blaster
+  ship.modifiers = { seeking: 0, doubleshot: 0, tripleshot: 0, rapidfire: 0 };
+  ship.pshieldPool = 0;
 }
 
 /**
@@ -274,8 +283,11 @@ function createShip(player, spawnPoint, shipIndex) {
     angle:          Math.random() * Math.PI * 2,
     angularVel:     0,
     shield:         def.shield,
-    ammo:           def.ammo,
+    ammo:           def.ammo,   // legacy field; firing uses `weapons` inventory
     weapon:         0,
+    weapons:        { 0: -1 },  // weaponId → ammo (-1 = infinite)
+    modifiers:      { seeking: 0, doubleshot: 0, tripleshot: 0, rapidfire: 0 },
+    pshieldPool:    0,          // damage absorb pool (PSHIELD powerups)
     fireTimer:      0,
     dashTimer:      0,
     dashCooldown:   0,
@@ -284,7 +296,6 @@ function createShip(player, spawnPoint, shipIndex) {
     invulnTimer:    CONFIG.RESPAWN_INVULN,
     invulnerable:   true,
     hitFlashTimer:  0,
-    pshieldTimer:   0,
     speedBoostTimer: 0,
     dashing:        false,
     dodging:        false,

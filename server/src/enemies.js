@@ -41,6 +41,9 @@ function createAIShip(id, spawnPoint, shipId, difficulty) {
     shield:          def.shield,
     ammo:            def.ammo,
     weapon:          0,
+    weapons:         { 0: -1 },  // weaponId → ammo (-1 = infinite)
+    modifiers:       { seeking: 0, doubleshot: 0, tripleshot: 0, rapidfire: 0 },
+    pshieldPool:     0,
     fireTimer:       0,
     dashTimer:       0,
     dashCooldown:    0,
@@ -49,7 +52,6 @@ function createAIShip(id, spawnPoint, shipId, difficulty) {
     invulnTimer:     CONFIG.RESPAWN_INVULN,
     invulnerable:    true,
     hitFlashTimer:   0,
-    pshieldTimer:    0,
     speedBoostTimer: 0,
     dashing:         false,
     dodging:         false,
@@ -99,6 +101,12 @@ function updateAI(aiShips, ships, arena, dt) {
     if (ai.hitFlashTimer> 0) ai.hitFlashTimer -= dt;
     if (ai._shootTimer  > 0) ai._shootTimer  -= dt;
     if (ai._reactionDelay > 0) ai._reactionDelay -= dt;
+
+    // Weapon modifier timers
+    if (ai.modifiers.seeking    > 0) ai.modifiers.seeking    -= dt;
+    if (ai.modifiers.doubleshot > 0) ai.modifiers.doubleshot -= dt;
+    if (ai.modifiers.tripleshot > 0) ai.modifiers.tripleshot -= dt;
+    if (ai.modifiers.rapidfire  > 0) ai.modifiers.rapidfire  -= dt;
 
     ai.dashing      = ai.dashTimer    > 0;
     ai.dodging      = ai.dodgeTimer   > 0;

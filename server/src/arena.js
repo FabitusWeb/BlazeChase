@@ -7,7 +7,7 @@ const { TILE, ARENA_COLS: COLS, ARENA_ROWS: ROWS } = CONFIG;
 
 /**
  * Generate a structured arena tilemap.
- * Returns { tiles, wallHP, theme, spawnPoints, powerupSpots }
+ * Returns { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards }
  */
 function generateArena() {
   const themeIdx  = Math.floor(Math.random() * CONFIG.THEME_NAMES.length);
@@ -91,7 +91,8 @@ function generateArena() {
     { x: (COLS-4) * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, y: (ROWS-4) * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2 }, // BR
   ];
 
-  // Make sure spawn areas are clear
+  // Make sure spawn areas are clear (any tile except the outer border —
+  // solid walls included, otherwise a random wall can seal a spawn)
   for (const sp of spawnPoints) {
     const tc = Math.floor(sp.x / CONFIG.TILE_SIZE);
     const tr = Math.floor(sp.y / CONFIG.TILE_SIZE);
@@ -99,7 +100,8 @@ function generateArena() {
       for (let dc = -1; dc <= 1; dc++) {
         const rr = tr + dr, cc = tc + dc;
         if (rr > 0 && rr < ROWS-1 && cc > 0 && cc < COLS-1) {
-          if (tiles[rr][cc] !== TILE.WALL_SOLID) tiles[rr][cc] = TILE.FLOOR;
+          tiles[rr][cc] = TILE.FLOOR;
+          wallHP[rr][cc] = 0;
         }
       }
     }
@@ -117,7 +119,101 @@ function generateArena() {
     { x: 25   * CONFIG.TILE_SIZE, y: 24 * CONFIG.TILE_SIZE },  // BR inner
   ];
 
-  return { tiles, wallHP, theme, spawnPoints, powerupSpots };
+  // Make sure powerup spots are clear (random quadrant walls can land on them)
+  for (const spot of powerupSpots) {
+    const tc = Math.floor(spot.x / CONFIG.TILE_SIZE);
+    const tr = Math.floor(spot.y / CONFIG.TILE_SIZE);
+    if (tr > 0 && tr < ROWS-1 && tc > 0 && tc < COLS-1) {
+      tiles[tr][tc] = TILE.FLOOR;
+      wallHP[tr][tc] = 0;
+    }
+  }
+
+  const hazards = generateHazards(tiles, spawnPoints, powerupSpots, rng);
+
+  return { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards };
+}
+
+/**
+ * Generate environmental hazards for an arena.
+ * Returns {
+ *   mines:      [{x,y}]                  — ownerless proximity mines
+ *   turrets:    [{type,x,y}]             — 'missile' | 'mortar'
+ *   blackholes: [{x,y}]
+ *   wave:       null | { axis, interval }
+ * }
+ * All positions are tile-center world coordinates.
+ */
+function generateHazards(tiles, spawnPoints, powerupSpots, rng) {
+  const TS = CONFIG.TILE_SIZE;
+  const tileAt = (c, r) => (r >= 0 && r < ROWS && c >= 0 && c < COLS) ? tiles[r][c] : TILE.WALL_SOLID;
+  const center = (c, r) => ({ x: c * TS + TS / 2, y: r * TS + TS / 2 });
+
+  // Spawn clearings: 3x3 around each spawn point
+  const spawnTiles = spawnPoints.map(sp => ({
+    c: Math.floor(sp.x / TS),
+    r: Math.floor(sp.y / TS),
+  }));
+  const inSpawnClearing = (c, r) =>
+    spawnTiles.some(st => Math.abs(st.c - c) <= 1 && Math.abs(st.r - r) <= 1);
+  const tileDistToSpawn = (c, r) =>
+    Math.min(...spawnTiles.map(st => Math.hypot(st.c - c, st.r - r)));
+  const onPowerupSpot = (c, r) => {
+    const p = center(c, r);
+    return powerupSpots.some(s => Math.hypot(s.x - p.x, s.y - p.y) < TS);
+  };
+
+  const used = new Set();  // "c,r" tiles already taken by a hazard
+  const hazards = { mines: [], turrets: [], blackholes: [], wave: null };
+
+  // ── Proximity mines: 4-8 on random floor tiles ────────────
+  const mineCount = randInt(rng, 4, 8);
+  for (let tries = 0; tries < 200 && hazards.mines.length < mineCount; tries++) {
+    const c = randInt(rng, 1, COLS - 2);
+    const r = randInt(rng, 1, ROWS - 2);
+    if (tileAt(c, r) !== TILE.FLOOR) continue;   // also excludes ACID/REFUEL
+    if (inSpawnClearing(c, r) || onPowerupSpot(c, r)) continue;
+    const key = c + ',' + r;
+    if (used.has(key)) continue;
+    used.add(key);
+    hazards.mines.push(center(c, r));
+  }
+
+  // ── Turrets: 50% chance 1, 25% chance 2 ───────────────────
+  const roll = rng();
+  const turretCount = roll < 0.25 ? 2 : roll < 0.75 ? 1 : 0;
+  for (let tries = 0; tries < 200 && hazards.turrets.length < turretCount; tries++) {
+    const c = randInt(rng, 1, COLS - 2);
+    const r = randInt(rng, 1, ROWS - 2);
+    if (tileAt(c, r) !== TILE.FLOOR) continue;
+    if (tileDistToSpawn(c, r) < 5) continue;
+    const key = c + ',' + r;
+    if (used.has(key)) continue;
+    used.add(key);
+    const type = rng() < 0.5 ? 'missile' : 'mortar';
+    hazards.turrets.push({ type, ...center(c, r) });
+  }
+
+  // ── Black hole: 35% chance, near the arena center ─────────
+  if (rng() < 0.35) {
+    for (let tries = 0; tries < 10; tries++) {
+      const c = randInt(rng, 16, 23);
+      const r = randInt(rng, 12, 17);
+      if (isSolid(tileAt(c, r))) continue;
+      hazards.blackholes.push(center(c, r));
+      break;
+    }
+  }
+
+  // ── Energy wave: 40% chance ────────────────────────────────
+  if (rng() < 0.40) {
+    hazards.wave = {
+      axis:     rng() < 0.5 ? 'x' : 'y',
+      interval: CONFIG.HAZARDS.WAVE.INTERVAL,
+    };
+  }
+
+  return hazards;
 }
 
 function placeQuadrantWalls(tiles, wallHP, q, rng) {
@@ -190,4 +286,4 @@ function getTile(tiles, wx, wy) {
   return tiles[row][col];
 }
 
-module.exports = { generateArena, isSolid, getTile };
+module.exports = { generateArena, generateHazards, isSolid, getTile, mulberry32 };

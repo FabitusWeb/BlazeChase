@@ -3,16 +3,32 @@
 'use strict';
 
 const CONFIG     = require('./config');
-const { generateArena } = require('./arena');
+const { getArena } = require('./arenas');
 const { updateShip, resolveShipCollisions, createShip } = require('./physics');
-const { fireBullets, updateBullets } = require('./weapons');
-const { updatePowerups, checkPickups } = require('./powerups');
-const { updateHazards } = require('./hazards');
+const { fireBullets, updateBullets, updateMines, explode } = require('./weapons');
+const { updatePowerups, checkPickups, createPowerup } = require('./powerups');
+const { createTurret, updateTurrets, applyBlackholes, updateWave } = require('./hazards');
 const { createAIShip, updateAI } = require('./enemies');
+const { getMission } = require('./missions');
 const { TILE } = CONFIG;
 
 const SOLO_AI_COUNT = { easy: 1, medium: 2, hard: 3 };
 const SOLO_SCORE_MULT = { easy: 1, medium: 2, hard: 3 };
+
+// Endless mode: seconds between clearing a wave and spawning the next
+const WAVE_DELAY = 3.0;
+// Endless score: kills + bonus per wave cleared
+const WAVE_SCORE_BONUS = 5;
+
+/**
+ * Endless wave composition: AI count ramps 1 → 3, difficulty ramps
+ * easy (waves 1-3) → medium (4-6) → hard (7+).
+ */
+function waveComposition(wave) {
+  const count      = Math.min(1 + Math.floor((wave - 1) / 2), 3);
+  const difficulty = wave <= 3 ? 'easy' : wave <= 6 ? 'medium' : 'hard';
+  return { count, difficulty };
+}
 
 const TICK_MS = 1000 / CONFIG.TICK_RATE;  // ~16.67ms
 
@@ -23,8 +39,17 @@ class Game {
     this.soloMode  = options.soloMode  || false;
     this.soloDiff  = options.difficulty || 'easy';
 
-    // Generate arena
-    this.arena = generateArena();
+    // Solo sub-mode: 'skirmish' (default) | 'mission' | 'endless'
+    this.soloGameMode = options.mode || 'skirmish';
+    this.mission      = null;
+    if (this.soloMode && this.soloGameMode === 'mission') {
+      this.mission = getMission(options.missionId);
+      if (!this.mission) this.soloGameMode = 'skirmish';  // unknown mission → skirmish
+    }
+    if (this.mission) this.soloDiff = this.mission.difficulty;
+
+    // Pick arena: mission forces its own arena, otherwise by id / 'random'
+    this.arena = getArena(this.mission ? this.mission.arenaId : (options.arenaId || 'random'));
 
     // Create ships
     this.ships = {};
@@ -36,21 +61,41 @@ class Game {
     // Solo mode: spawn AI ships
     this.aiShips = [];
     if (this.soloMode) {
-      this.playerLives = 3;
-      const aiCount = SOLO_AI_COUNT[this.soloDiff] || 1;
-      for (let i = 0; i < aiCount; i++) {
-        const spIdx = (players.length + i) % this.arena.spawnPoints.length;
-        const sp    = this.arena.spawnPoints[spIdx];
-        const shipId = Math.floor(Math.random() * CONFIG.SHIPS.length);
-        const aiId   = 'ai-' + i;
-        const aiShip = createAIShip(aiId, sp, shipId, this.soloDiff);
-        this.aiShips.push(aiShip);
-        this.ships[aiId] = aiShip;
-      }
+      this.playerLives  = this.mission ? this.mission.lives : 3;
+      this.aiKilled     = 0;    // AI destroyed (mission progress / endless kills)
+      this.wave         = 1;    // endless wave number
+      this.waveDelay    = 0;    // >0 while waiting to spawn the next wave
+      this.missionTimer = this.mission && this.mission.objective.type === 'survive'
+        ? this.mission.objective.seconds
+        : 0;
+
+      const aiCount = this.soloGameMode === 'endless'
+        ? waveComposition(1).count
+        : this.mission
+          ? this.mission.aiCount
+          : (SOLO_AI_COUNT[this.soloDiff] || 1);
+      this._spawnAIWave(aiCount, this.soloGameMode === 'endless'
+        ? waveComposition(1).difficulty
+        : this.soloDiff, players.length);
     }
 
     this.bullets    = [];
+    this.mines      = [];
     this.powerups   = [];
+
+    // ── Environmental hazards (from arena generation) ──────
+    this.hazards    = this.arena.hazards;
+    this.turrets    = this.hazards.turrets.map((d, i) => createTurret(d, 'turret-' + i));
+    this.blackholes = this.hazards.blackholes;
+    this.waveState  = this.hazards.wave
+      ? { ...this.hazards.wave, timer: 6, active: null }
+      : null;
+    // Arena-placed proximity mines: ownerless (no kill credit), pre-armed.
+    // Negative ids never collide with weapon-laid mine ids.
+    let hazardMineId = -1;
+    for (const m of this.hazards.mines) {
+      this.mines.push({ id: hazardMineId--, x: m.x, y: m.y, ownerId: null, armTimer: 0 });
+    }
     this.events     = [];   // accumulated per-tick events to broadcast
     this.tickCount  = 0;
     this.running    = false;
@@ -82,6 +127,12 @@ class Game {
       theme:        this.arena.theme,
       spawnPoints:  this.arena.spawnPoints,
       powerupSpots: this.arena.powerupSpots,
+      hazards: {
+        mines:      this.hazards.mines,
+        turrets:    this.turrets.map(t => ({ id: t.id, type: t.type, x: t.x, y: t.y })),
+        blackholes: this.blackholes,
+        wave:       this.hazards.wave,
+      },
     });
 
     this._intervalId = setInterval(() => this._tick(), TICK_MS);
@@ -111,6 +162,52 @@ class Game {
     buf.dash         = !!keys.dash;
     buf.dodge        = !!keys.dodge;
     buf.switchWeapon = !!keys.switchWeapon;
+  }
+
+  /**
+   * Spawn (or recycle) `count` AI ships at `difficulty`. Existing AI slots
+   * are reused; slots beyond `count` stay dead. playerCount offsets the
+   * spawn-point index so AI don't spawn on top of humans.
+   */
+  _spawnAIWave(count, difficulty, playerCount = 1) {
+    for (let i = 0; i < count; i++) {
+      const spIdx  = (playerCount + i) % this.arena.spawnPoints.length;
+      const sp     = this.arena.spawnPoints[spIdx];
+      const shipId = Math.floor(Math.random() * CONFIG.SHIPS.length);
+      let ai = this.aiShips[i];
+      if (!ai) {
+        ai = createAIShip('ai-' + i, sp, shipId, difficulty);
+        this.aiShips.push(ai);
+        this.ships[ai.id] = ai;
+      } else {
+        Object.assign(ai, createAIShip(ai.id, sp, shipId, difficulty));
+      }
+    }
+    for (let i = count; i < this.aiShips.length; i++) {
+      this.aiShips[i].alive = false;
+      this.aiShips[i].respawnTimer = 9999;
+    }
+  }
+
+  /** Respawn one dead AI ship on a random spawn point (mid-wave modes). */
+  _respawnAI(ai) {
+    const sp = this.arena.spawnPoints[Math.floor(Math.random() * this.arena.spawnPoints.length)];
+    const difficulty = this.soloGameMode === 'endless'
+      ? waveComposition(this.wave).difficulty
+      : this.soloDiff;
+    const shipId = Math.floor(Math.random() * CONFIG.SHIPS.length);
+    Object.assign(ai, createAIShip(ai.id, sp, shipId, difficulty));
+  }
+
+  /** Should a just-killed AI respawn? Only in mission modes that need it. */
+  _aiShouldRespawn() {
+    if (!this.mission) return false;  // skirmish & endless: waves / no respawn
+    const obj = this.mission.objective;
+    if (obj.type === 'eliminate') {
+      const alive = this.aiShips.filter(a => a.alive).length;
+      return this.aiKilled + alive < obj.kills;
+    }
+    return true;  // survive / turrets: keep the pressure on
   }
 
   _tick() {
@@ -144,7 +241,10 @@ class Game {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id];
       if (input && input.switchWeapon && !input._prevSwitchWeapon && ship.alive) {
-        ship.weapon = (ship.weapon + 1) % CONFIG.WEAPONS.length;
+        // Cycle only through OWNED weapon ids
+        const owned = Object.keys(ship.weapons).map(Number).sort((a, b) => a - b);
+        const idx   = owned.indexOf(ship.weapon);
+        ship.weapon = owned[(idx + 1) % owned.length];
       }
       if (input) input._prevSwitchWeapon = input.switchWeapon;
     }
@@ -169,6 +269,33 @@ class Game {
           this._killShip(ai, null, null);
         }
       }
+      // Mid-wave AI respawns (mission modes that allow it)
+      for (const ai of this.aiShips) {
+        if (ai.alive || ai.respawnTimer >= 9999) continue;
+        ai.respawnTimer -= dt;
+        if (ai.respawnTimer <= 0) this._respawnAI(ai);
+      }
+    }
+
+    // ── Solo: mission timer + endless wave progression ──────
+    if (this.soloMode && !this.roundOver) {
+      if (this.mission && this.mission.objective.type === 'survive' && this.missionTimer > 0) {
+        this.missionTimer -= dt;
+      }
+      if (this.soloGameMode === 'endless') {
+        if (this.aiShips.some(ai => ai.alive)) {
+          this.waveDelay = 0;
+        } else {
+          if (this.waveDelay <= 0) this.waveDelay = WAVE_DELAY;
+          this.waveDelay -= dt;
+          if (this.waveDelay <= 0) {
+            this.wave++;
+            const { count, difficulty } = waveComposition(this.wave);
+            this._spawnAIWave(count, difficulty);
+            this.events.push({ type: 'event', kind: 'wave_start', wave: this.wave });
+          }
+        }
+      }
     }
 
     // ── Ship-ship collision ────────────────────────────────
@@ -178,18 +305,32 @@ class Game {
     for (const [id, ship] of Object.entries(this.ships)) {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
-      const newBullets = fireBullets(ship, input);
-      this.bullets.push(...newBullets);
+      const { bullets, beams, mines } = fireBullets(ship, input, { ships: this.ships, arena: this.arena });
+      this.bullets.push(...bullets);
+      this._addMines(mines);
+      this._handleBeams(beams);
     }
 
     // ── Update bullets ────────────────────────────────────
     const { survived, events: bulletEvents } = updateBullets(
-      this.bullets, this.ships, this.arena, dt
+      this.bullets, this.ships, this.arena, dt, this.turrets
     );
     this.bullets = survived;
 
     for (const ev of bulletEvents) {
       this._processBulletEvent(ev);
+    }
+
+    // ── Update mines ──────────────────────────────────────
+    const { survived: minesSurvived, events: mineEvents } = updateMines(
+      this.mines, this.ships, dt
+    );
+    this.mines = minesSurvived;
+
+    for (const ev of mineEvents) {
+      if (ev.kind === 'mine_explode') {
+        this._explodeAt(ev.x, ev.y, CONFIG.MINE.AOE_RADIUS, CONFIG.MINE.AOE_DAMAGE, ev.mine.ownerId);
+      }
     }
 
     // ── Update power-ups ──────────────────────────────────
@@ -208,7 +349,25 @@ class Game {
     }
 
     // ── Update hazards ────────────────────────────────────
-    updateHazards([], this.ships, dt);
+    // Turrets track and shoot ships
+    const { bullets: turretBullets } = updateTurrets(this.turrets, this.ships, dt);
+    this.bullets.push(...turretBullets);
+
+    // Black holes pull and damage ships
+    for (const { ship, dmg } of applyBlackholes(this.blackholes, this.ships, dt)) {
+      this._damageEnvironment(ship, dmg);
+    }
+
+    // Periodic energy wave
+    if (this.waveState) {
+      const { damages, events: waveEvents } = updateWave(this.waveState, this.ships, this.arena, dt);
+      for (const { ship, dmg } of damages) {
+        this._damageEnvironment(ship, dmg);
+      }
+      for (const ev of waveEvents) {
+        this.events.push({ type: 'event', ...ev });
+      }
+    }
 
     // ── Check round end ───────────────────────────────────
     this._checkRoundEnd();
@@ -261,8 +420,7 @@ class Game {
 
     if (ev.kind === 'bullet_hit') {
       const ship = ev.ship;
-      const dmg  = ship.pshieldTimer > 0 ? Math.ceil(ev.bullet.damage * 0.3) : ev.bullet.damage;
-      ship.shield -= dmg;
+      this._applyDamage(ship, ev.bullet.damage);
       ship.hitFlashTimer = 0.15;
 
       this.events.push({
@@ -275,6 +433,135 @@ class Game {
         this._killShip(ship, ev.bullet.ownerId, ev.bullet.weapon);
       }
     }
+
+    if (ev.kind === 'turret_hit') {
+      this._damageTurret(ev.turret, ev.bullet.damage, ev.bullet.ownerId);
+      this.events.push({
+        type: 'event', kind: 'explosion',
+        x: ev.bullet.x, y: ev.bullet.y, size: 'small',
+      });
+    }
+
+    // AoE warheads explode on ANY impact (wall, ship or turret), in addition
+    // to the direct-hit damage above
+    if (ev.bullet.aoe) {
+      this._explodeAt(ev.bullet.x, ev.bullet.y, ev.bullet.aoe.radius, ev.bullet.aoe.damage, ev.bullet.ownerId);
+    }
+  }
+
+  /**
+   * Apply damage to a ship: pshieldPool absorbs first, overflow hits shield.
+   */
+  _applyDamage(ship, dmg) {
+    let remaining = dmg;
+    if (ship.pshieldPool > 0) {
+      const absorbed = Math.min(ship.pshieldPool, remaining);
+      ship.pshieldPool -= absorbed;
+      remaining -= absorbed;
+    }
+    ship.shield -= remaining;
+  }
+
+  /**
+   * Trigger an explosion at (x, y): damage every ship in radius
+   * (owner included, Chase Ace 2 style) and broadcast the event.
+   * Turrets caught in the blast take damage with the same falloff.
+   */
+  _explodeAt(x, y, radius, damage, ownerId) {
+    const hits = explode(x, y, radius, damage, ownerId, this.ships);
+    for (const { ship, dmg } of hits) {
+      this._applyDamage(ship, dmg);
+      ship.hitFlashTimer = 0.15;
+      if (ship.shield <= 0) {
+        ship.shield = 0;
+        this._killShip(ship, ownerId, null);
+      }
+    }
+    for (const t of this.turrets) {
+      if (!t.alive) continue;
+      const dist = Math.hypot(t.x - x, t.y - y);
+      if (dist > radius) continue;
+      const dmg = Math.round(damage * (1 - 0.5 * dist / radius));
+      this._damageTurret(t, dmg, ownerId);
+    }
+    this.events.push({
+      type: 'event', kind: 'explosion',
+      x, y,
+      size: radius > 80 ? 'large' : 'medium',
+    });
+  }
+
+  /**
+   * Apply environmental damage (black hole, energy wave): no kill credit.
+   */
+  _damageEnvironment(ship, dmg) {
+    this._applyDamage(ship, dmg);
+    if (ship.shield <= 0) {
+      ship.shield = 0;
+      this._killShip(ship, null, null);
+    }
+  }
+
+  /**
+   * Damage a turret; on destruction broadcast a large explosion and
+   * maybe drop a random powerup at its position.
+   */
+  _damageTurret(turret, dmg, attackerId) {
+    if (!turret.alive) return;
+    turret.hp -= dmg;
+    if (turret.hp > 0) return;
+    turret.hp    = 0;
+    turret.alive = false;
+    this.events.push({
+      type: 'event', kind: 'turret_destroyed',
+      id: turret.id, x: turret.x, y: turret.y, killerId: attackerId,
+    });
+    this.events.push({
+      type: 'event', kind: 'explosion',
+      x: turret.x, y: turret.y, size: 'large',
+    });
+    if (Math.random() < CONFIG.POWERUP_DROP_CHANCE) {
+      const typeId = Math.floor(Math.random() * CONFIG.POWERUPS.length);
+      this.powerups.push(createPowerup(turret.x, turret.y, typeId));
+    }
+  }
+
+  /**
+   * Push new mines, enforcing CONFIG.MINE.MAX_PER_SHIP per owner
+   * (the owner's oldest mine is dropped when the cap is exceeded).
+   */
+  _addMines(mines) {
+    for (const m of mines) {
+      this.mines.push(m);
+      const owned = this.mines.filter(x => x.ownerId === m.ownerId);
+      if (owned.length > CONFIG.MINE.MAX_PER_SHIP) {
+        this.mines.splice(this.mines.indexOf(owned[0]), 1);
+      }
+    }
+  }
+
+  /**
+   * Resolve beam shots: damage the hit ship, always broadcast the beam
+   * event so clients can render it.
+   */
+  _handleBeams(beams) {
+    for (const b of beams) {
+      if (b.hitShipId && this.ships[b.hitShipId]) {
+        const ship = this.ships[b.hitShipId];
+        const wDef = CONFIG.WEAPONS[b.weapon];
+        this._applyDamage(ship, wDef.damage);
+        ship.hitFlashTimer = 0.15;
+        if (ship.shield <= 0) {
+          ship.shield = 0;
+          this._killShip(ship, b.ownerId, b.weapon);
+        }
+      }
+      this.events.push({
+        type: 'event', kind: 'beam',
+        x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2,
+        weapon: b.weapon,
+      });
+    }
   }
 
   _killShip(ship, killerId, weaponId) {
@@ -286,10 +573,11 @@ class Game {
       this.ships[killerId].kills++;
     }
 
-    // Solo mode: AI never respawns; player loses a life
+    // Solo mode: player loses a life; AI respawn depends on sub-mode
     if (this.soloMode) {
       if (ship.isAI) {
-        ship.respawnTimer = 9999;
+        this.aiKilled++;
+        ship.respawnTimer = this._aiShouldRespawn() ? CONFIG.RESPAWN_TIME : 9999;
       } else {
         this.playerLives = Math.max(0, this.playerLives - 1);
         if (this.playerLives <= 0) {
@@ -316,13 +604,37 @@ class Game {
     if (this.roundOver) return;
 
     if (this.soloMode) {
-      if (this.aiShips.length > 0 && this.aiShips.every(ai => !ai.alive)) {
-        this._endSolo(true);
-        return;
-      }
+      // Defeat: out of lives and the human ship is gone
       if (this.playerLives <= 0) {
         const humanShip = Object.values(this.ships).find(s => !s.isAI);
         if (humanShip && !humanShip.alive) this._endSolo(false);
+        return;
+      }
+
+      // Endless: no victory — only defeat (waves advance in _update)
+      if (this.soloGameMode === 'endless') return;
+
+      // Mission: objective-driven victory
+      if (this.mission) {
+        const obj = this.mission.objective;
+        if (obj.type === 'eliminate' && this.aiKilled >= obj.kills) {
+          this._endSolo(true);
+          return;
+        }
+        if (obj.type === 'survive' && this.missionTimer <= 0) {
+          this._endSolo(true);
+          return;
+        }
+        if (obj.type === 'turrets' && this.turrets.length > 0 && this.turrets.every(t => !t.alive)) {
+          this._endSolo(true);
+          return;
+        }
+        return;
+      }
+
+      // Skirmish: all AI destroyed
+      if (this.aiShips.length > 0 && this.aiShips.every(ai => !ai.alive)) {
+        this._endSolo(true);
       }
       return;
     }
@@ -351,13 +663,32 @@ class Game {
     }
   }
 
+  /** Current solo score: endless = kills + wave bonus, otherwise kills × difficulty. */
+  _soloScore() {
+    const humanShip = Object.values(this.ships).find(s => !s.isAI);
+    const kills = humanShip?.kills || 0;
+    if (this.soloGameMode === 'endless') {
+      return kills + WAVE_SCORE_BONUS * (this.wave - 1);
+    }
+    return kills * (SOLO_SCORE_MULT[this.soloDiff] || 1);
+  }
+
   _endSolo(victory) {
     this.roundOver = true;
     const humanShip = Object.values(this.ships).find(s => !s.isAI);
     const kills  = humanShip?.kills  || 0;
     const deaths = humanShip?.deaths || 0;
-    const score  = kills * (SOLO_SCORE_MULT[this.soloDiff] || 1);
-    this.broadcast({ type: 'solo_end', victory, score, kills, deaths, difficulty: this.soloDiff, livesLeft: this.playerLives });
+    this.broadcast({
+      type: 'solo_end', victory,
+      score:       this._soloScore(),
+      kills, deaths,
+      difficulty:  this.soloDiff,
+      livesLeft:   this.playerLives,
+      mode:        this.soloGameMode,
+      wave:        this.soloGameMode === 'endless' ? this.wave : null,
+      missionId:   this.mission ? this.mission.id   : null,
+      missionName: this.mission ? this.mission.name : null,
+    });
     this._endTimeout = setTimeout(() => {
       if (!this.running) return;
       this.stop();
@@ -380,6 +711,9 @@ class Game {
       shield:         s.shield,
       ammo:           s.ammo,
       weapon:         s.weapon,
+      weapons:        s.weapons,
+      modifiers:      s.modifiers,
+      pshieldPool:    s.pshieldPool,
       dashing:        s.dashing,
       dodging:        s.dodging,
       thrusting:      s.thrusting,
@@ -387,12 +721,13 @@ class Game {
       invulnerable:   s.invulnerable,
       respawnTimer:   s.respawnTimer,
       hitFlashTimer:  s.hitFlashTimer,
+      dashCooldown:   s.dashCooldown,
+      dodgeCooldown:  s.dodgeCooldown,
       onRefuel:       s.onRefuel,
       angularVel:     s.angularVel,
       kills:          s.kills,
       deaths:         s.deaths,
       speedBoostTimer: s.speedBoostTimer,
-      pshieldTimer:   s.pshieldTimer,
     }));
 
     const bullets = this.bullets.map(b => ({
@@ -415,20 +750,71 @@ class Game {
       bobPhase: p.bobPhase,
     }));
 
-    const soloInfo = this.soloMode ? {
-      lives:       this.playerLives,
-      aiRemaining: this.aiShips.filter(ai => ai.alive).length,
-    } : null;
+    const mines = this.mines.map(m => ({
+      id:      m.id,
+      x:       m.x,
+      y:       m.y,
+      ownerId: m.ownerId,
+      armed:   m.armTimer <= 0,
+    }));
+
+    let soloInfo = null;
+    if (this.soloMode) {
+      soloInfo = {
+        mode:        this.soloGameMode,
+        lives:       this.playerLives,
+        aiRemaining: this.aiShips.filter(ai => ai.alive).length,
+        wave:        this.soloGameMode === 'endless' ? this.wave : null,
+        score:       this._soloScore(),
+        objective:   null,
+      };
+      if (this.mission) {
+        const obj = this.mission.objective;
+        if (obj.type === 'eliminate') {
+          soloInfo.objective = { text: 'KILLS', progress: this.aiKilled, target: obj.kills };
+        } else if (obj.type === 'turrets') {
+          soloInfo.objective = {
+            text:     'TURRETS',
+            progress: this.turrets.filter(t => !t.alive).length,
+            target:   this.turrets.length,
+          };
+        } else if (obj.type === 'survive') {
+          soloInfo.objective = {
+            text:     'SURVIVE',
+            progress: Math.ceil(Math.max(0, this.missionTimer)),
+            target:   obj.seconds,
+          };
+        }
+      }
+    }
+
+    const turrets = this.turrets.map(t => ({
+      id:    t.id,
+      type:  t.type,
+      x:     t.x,
+      y:     t.y,
+      angle: t.angle,
+      hp:    t.hp,
+      alive: t.alive,
+    }));
+
+    const wave = this.waveState && this.waveState.active
+      ? { axis: this.waveState.axis, pos: this.waveState.active.pos, dir: this.waveState.active.dir }
+      : null;
 
     this.broadcast({
       type:    'state',
       tick:    this.tickCount,
       players,
       bullets,
+      mines,
       powerups,
       soloInfo,
+      turrets,
+      wave,
     });
   }
 }
 
 module.exports = Game;
+module.exports.waveComposition = waveComposition;

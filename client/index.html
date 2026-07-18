@@ -44,13 +44,25 @@
       <input id="solo-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="off">
       <div class="ship-select-label" style="margin-top:16px">CHOOSE YOUR SHIP</div>
       <div class="ship-grid" id="solo-ship-grid"></div>
-      <div class="diff-label">DIFFICULTY</div>
+      <div class="diff-label">MODE</div>
       <div class="diff-buttons">
-        <button class="btn diff-btn" id="diff-easy"   data-diff="easy">EASY</button>
-        <button class="btn diff-btn" id="diff-medium" data-diff="medium">MEDIUM</button>
-        <button class="btn diff-btn" id="diff-hard"   data-diff="hard">HARD</button>
+        <button class="btn diff-btn mode-btn selected" id="mode-skirmish" data-mode="skirmish">SKIRMISH</button>
+        <button class="btn diff-btn mode-btn" id="mode-mission" data-mode="mission">MISSIONS</button>
+        <button class="btn diff-btn mode-btn" id="mode-endless" data-mode="endless">ENDLESS</button>
       </div>
-      <div class="diff-hint" id="diff-hint"></div>
+      <div class="diff-hint" id="mode-hint"></div>
+      <div id="skirmish-options" class="solo-mode-options">
+        <div class="diff-label">ARENA</div>
+        <select id="solo-arena-select" class="arena-select"></select>
+        <div class="diff-label">DIFFICULTY</div>
+        <div class="diff-buttons">
+          <button class="btn diff-btn" id="diff-easy"   data-diff="easy">EASY</button>
+          <button class="btn diff-btn" id="diff-medium" data-diff="medium">MEDIUM</button>
+          <button class="btn diff-btn" id="diff-hard"   data-diff="hard">HARD</button>
+        </div>
+        <div class="diff-hint" id="diff-hint"></div>
+      </div>
+      <div id="mission-list" class="mission-list hidden"></div>
       <button class="btn btn-primary solo-play-btn" id="btn-solo-play">PLAY</button>
       <button class="btn btn-back" id="btn-back-solo">BACK</button>
     </div>
@@ -65,9 +77,10 @@
       <button class="btn lb-tab active" data-diff="easy">EASY</button>
       <button class="btn lb-tab" data-diff="medium">MEDIUM</button>
       <button class="btn lb-tab" data-diff="hard">HARD</button>
+      <button class="btn lb-tab" data-diff="endless">ENDLESS</button>
     </div>
     <table id="lb-table">
-      <thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th>K</th><th>D</th><th>DATE</th></tr></thead>
+      <thead id="lb-head"><tr><th>#</th><th>NAME</th><th>SCORE</th><th>K</th><th>D</th><th>DATE</th></tr></thead>
       <tbody id="lb-body"></tbody>
     </table>
     <div class="scoreboard-buttons">
@@ -96,6 +109,11 @@
     <div class="lobby-top">
       <h2>ROOM: <span id="lobby-code" class="room-code">----</span></h2>
       <p class="lobby-hint">Share this code with your friend</p>
+    </div>
+
+    <div class="lobby-arena">
+      <div class="ship-select-label">ARENA</div>
+      <select id="arena-select" class="arena-select"></select>
     </div>
 
     <div class="lobby-ships">

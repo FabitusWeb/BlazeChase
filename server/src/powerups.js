@@ -94,14 +94,35 @@ function applyPowerup(ship, p) {
       ship.shield = Math.min(def.shield, ship.shield + p.value);
       break;
     case 'ammo':
-      ship.ammo = Math.min(def.ammo, ship.ammo + p.value);
+      // Top up every OWNED non-infinite weapon (cap: 3× pickupAmmo)
+      for (const [id, ammo] of Object.entries(ship.weapons)) {
+        if (ammo === -1) continue;
+        const wDef = CONFIG.WEAPONS[id];
+        const cap  = wDef.pickupAmmo ? wDef.pickupAmmo * 3 : Infinity;
+        ship.weapons[id] = Math.min(cap, ammo + p.value);
+      }
       break;
-    case 'weapon':
-      // Give a random non-blaster weapon
-      ship.weapon = 1 + Math.floor(Math.random() * (CONFIG.WEAPONS.length - 1));
+    case 'weapon': {
+      // Grant a random non-blaster weapon (or refill it if owned)
+      const wid  = 1 + Math.floor(Math.random() * (CONFIG.WEAPONS.length - 1));
+      const wDef = CONFIG.WEAPONS[wid];
+      const cap  = wDef.pickupAmmo ? wDef.pickupAmmo * 3 : Infinity;
+      const cur  = ship.weapons[wid];
+      ship.weapons[wid] = cur === undefined
+        ? wDef.pickupAmmo
+        : Math.min(cap, cur + wDef.pickupAmmo);
       break;
+    }
     case 'pshield':
-      ship.pshieldTimer = Math.max(ship.pshieldTimer, p.value);
+    case 'pshield2':
+      // Absorb pool = value × ship max shield (no timer)
+      ship.pshieldPool = Math.max(ship.pshieldPool, def.shield * p.value);
+      break;
+    case 'seeking':
+    case 'doubleshot':
+    case 'tripleshot':
+    case 'rapidfire':
+      ship.modifiers[p.effect] = Math.max(ship.modifiers[p.effect], p.value);
       break;
     case 'speed':
       ship.speedBoostTimer = Math.max(ship.speedBoostTimer, p.value);

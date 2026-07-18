@@ -48,8 +48,12 @@ export class HUD {
     ctx.fillRect(panelX, panelY, barW * shieldFrac, barH);
     _barLabel(ctx, 'SHIELD', panelX, panelY - 13, shieldColor);
 
-    // Ammo bar
-    const ammoFrac = Math.max(0, Math.min(1, (localPlayer.ammo || 0) / maxAmmo));
+    // Ammo bar — current weapon ammo from the inventory map
+    // (-1 / undefined = blaster infinite → full bar)
+    const curAmmo = localPlayer.weapons ? localPlayer.weapons[localPlayer.weapon || 0] : undefined;
+    const ammoFrac = (curAmmo === undefined || curAmmo === -1)
+      ? 1
+      : Math.max(0, Math.min(1, curAmmo / ((wDef.pickupAmmo || maxAmmo) * 1)));
     const ammoY    = panelY + barH + 10;
     ctx.fillStyle = '#111';
     ctx.fillRect(panelX, ammoY, barW, barH);
@@ -102,8 +106,9 @@ export class HUD {
     }
 
     // ── Active power-up badge ────────────────────────────────
-    if ((localPlayer.pshieldTimer || 0) > 0) {
-      _powerupBadge(ctx, W - 14, H - 130, 'P', '#4444FF', localPlayer.pshieldTimer, CONFIG.POWERUPS[3].value);
+    if ((localPlayer.pshieldPool || 0) > 0) {
+      // Plain icon badge while the absorb pool holds (no timer ring)
+      _powerupBadge(ctx, W - 14, H - 130, 'P', '#4444FF', 1, 1);
     }
     if ((localPlayer.speedBoostTimer || 0) > 0) {
       _powerupBadge(ctx, W - 14, H - 170, 'V', '#44FF44', localPlayer.speedBoostTimer, CONFIG.POWERUPS[4].value);
@@ -135,9 +140,12 @@ export class HUD {
 
   _drawSoloHUD(ctx, soloInfo, W) {
     const cx = W / 2;
+    const mode = soloInfo.mode || 'skirmish';
+    const hasExtra = mode !== 'skirmish';
+
     // Background
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    _roundRect(ctx, cx - 90, 6, 180, 56, 5);
+    _roundRect(ctx, cx - 100, 6, 200, hasExtra ? 74 : 56, 5);
     ctx.fill();
 
     // Lives (hearts)
@@ -152,10 +160,26 @@ export class HUD {
     ctx.fillStyle = '#FF4444';
     ctx.fillText(heartsStr, cx, 12);
 
-    // AI remaining
-    ctx.fillStyle = '#FF8800';
     ctx.font = 'bold 13px monospace';
-    ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 38);
+    if (mode === 'endless') {
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText(`WAVE ${soloInfo.wave || 1}  •  SCORE ${soloInfo.score || 0}`, cx, 38);
+      ctx.fillStyle = '#FF8800';
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
+    } else if (mode === 'mission' && soloInfo.objective) {
+      const o = soloInfo.objective;
+      const line = o.text === 'SURVIVE'
+        ? `${o.text}: ${o.progress}s`
+        : `${o.text}: ${o.progress}/${o.target}`;
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText(line, cx, 38);
+      ctx.fillStyle = '#FF8800';
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
+    } else {
+      // Skirmish
+      ctx.fillStyle = '#FF8800';
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 38);
+    }
   }
 
   _drawKillFeed(ctx, killFeed, W, time) {

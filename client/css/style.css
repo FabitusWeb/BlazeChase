@@ -129,6 +129,24 @@ html, body {
 .join-form input:focus { border-color: #FF6600; box-shadow: 0 0 8px #FF660066; }
 .hidden { display: none !important; }
 
+/* Arena picker (lobby + solo) */
+.arena-select {
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 2px;
+  background: #1a1a2a;
+  border: 2px solid #444;
+  color: #fff;
+  border-radius: 4px;
+  outline: none;
+  text-align: center;
+  width: 280px;
+}
+.arena-select:focus { border-color: #FF6600; box-shadow: 0 0 8px #FF660066; }
+.arena-select:disabled { opacity: 0.5; }
+.lobby-arena { text-align: center; }
+
 .error-msg {
   color: #FF4444;
   font-size: 14px;
@@ -358,6 +376,49 @@ html, body {
   min-height: 16px;
 }
 .solo-play-btn { width: 200px; margin-top: 6px; }
+
+/* Solo mode tabs + mission picker */
+.solo-mode-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.mission-item {
+  padding: 10px 14px;
+  background: #1a1a2a;
+  border: 2px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.mission-item:hover { border-color: #555; }
+.mission-item.selected { border-color: #FF6600; box-shadow: 0 0 10px #FF660055; }
+.mission-item .mission-name {
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #fff;
+}
+.mission-item .mission-diff {
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-left: 8px;
+}
+.mission-item .mission-done { color: #44FF44; margin-left: 6px; }
+.mission-item .mission-desc {
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
 
 /* ── Leaderboard ───────────────────────────────────────────── */
 .lb-tabs {

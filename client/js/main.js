@@ -17,6 +17,10 @@ let myShip      = 0;
 let myName      = 'Player';
 let soloMode    = false;
 let lastSoloDiff = 'easy';
+let serverArenas  = [];   // arena list from the server welcome message
+let serverMissions = [];  // mission list from the server welcome message
+let soloGameMode  = 'skirmish';   // 'skirmish' | 'mission' | 'endless'
+let selectedMissionId = null;
 
 // Game state received from server
 let arenaData   = null;
@@ -59,6 +63,9 @@ window.addEventListener('DOMContentLoaded', () => {
   net.on('welcome', (msg) => {
     myId  = msg.id;
     net.myId = myId;
+    serverArenas = msg.arenas || [];
+    serverMissions = msg.missions || [];
+    populateArenaSelects();
   });
 
   net.on('lobby', (msg) => {
@@ -84,6 +91,12 @@ window.addEventListener('DOMContentLoaded', () => {
     el.offsetHeight; // reflow
     el.style.animation = '';
     audio.countdownBeep(msg.value);
+  });
+
+  net.on('countdown_cancel', () => {
+    _pendingStart = false;
+    setState(STATES.LOBBY);
+    if (currentRoom) updateLobbyUI(currentRoom);
   });
 
   net.on('arena', (msg) => {
@@ -128,6 +141,7 @@ function setupMenuUI() {
   document.getElementById('btn-solo').addEventListener('click', () => {
     setState(STATES.SOLO);
     buildSoloShipGrid();
+    buildMissionList();
     document.getElementById('solo-name').focus();
   });
 
@@ -187,6 +201,22 @@ function showMenuError(msg) {
 }
 
 // ── Lobby UI ──────────────────────────────────────────────────
+// Fill both arena <select> elements from the server-provided list
+function populateArenaSelects() {
+  const options = [{ id: 'random', name: 'RANDOM', difficulty: '' }, ...serverArenas];
+  for (const id of ['arena-select', 'solo-arena-select']) {
+    const sel = document.getElementById(id);
+    if (!sel) continue;
+    sel.innerHTML = '';
+    for (const a of options) {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.difficulty ? `${a.name} — ${a.difficulty}` : a.name;
+      sel.appendChild(opt);
+    }
+  }
+}
+
 function buildShipGrid() {
   const grid = document.getElementById('ship-grid');
   grid.innerHTML = '';
@@ -242,27 +272,45 @@ function updateLobbyUI(lobby) {
     row.className = 'player-row' + (p.ready ? ' ready' : '');
     const shipDef = CONFIG.SHIPS[p.ship] || CONFIG.SHIPS[0];
     row.innerHTML = `
-      <span class="pname" style="color:${shipDef.color}">${p.name}</span>
+      <span class="pname" style="color:${shipDef.color}">${esc(p.name)}</span>
       <span class="pship">${shipDef.name}</span>
       <span class="pstatus">${p.id === lobby.hostId ? '(host) ' : ''}${p.ready ? 'READY' : 'not ready'}</span>
     `;
     list.appendChild(row);
   });
+
+  // Arena picker: only the host may change it, others see the current pick
+  const arenaSelect = document.getElementById('arena-select');
+  if (arenaSelect) {
+    arenaSelect.value = lobby.arenaId || 'random';
+    arenaSelect.disabled = lobby.hostId !== myId;
+  }
+
+  // Reflect own ready state on the toggle button
+  const me = (lobby.players || []).find(p => p.id === myId);
+  const btnReady = document.getElementById('btn-ready');
+  if (btnReady) btnReady.textContent = me?.ready ? 'UNREADY' : 'READY';
+}
+
+// Escape user-supplied text before injecting into innerHTML (anti-XSS)
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-ready')?.addEventListener('click', () => {
+    // Server toggles ready/un-ready; button text updates on next lobby snapshot
     net.send({ type: 'ready' });
-    document.getElementById('btn-ready').textContent = 'WAITING...';
-    document.getElementById('btn-ready').disabled = true;
-    setTimeout(() => {
-      document.getElementById('btn-ready').textContent = 'READY';
-      document.getElementById('btn-ready').disabled = false;
-    }, 2000);
   });
 
   document.getElementById('btn-back-lobby')?.addEventListener('click', () => {
     setState(STATES.MENU);
+  });
+
+  document.getElementById('arena-select')?.addEventListener('change', (e) => {
+    net.send({ type: 'arena_select', arenaId: e.target.value });
   });
 
   document.getElementById('btn-rematch')?.addEventListener('click', () => {
@@ -281,6 +329,65 @@ const DIFF_HINTS = {
   medium: '2 enemies •  balanced AI',
   hard:   '3 enemies •  fast & deadly',
 };
+
+const MODE_HINTS = {
+  skirmish: 'Free deathmatch vs AI — pick arena & difficulty',
+  mission:  'Handcrafted objectives — complete them all',
+  endless:  'Escalating waves, 3 lives — how far can you get?',
+};
+
+const MISSION_DIFF_COLORS = { easy: '#44FF44', medium: '#FFAA00', hard: '#FF4444' };
+
+// Completed mission ids (localStorage)
+const LS_MISSIONS_KEY = 'blazechase_missions';
+function getCompletedMissions() {
+  try { return JSON.parse(localStorage.getItem(LS_MISSIONS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function buildMissionList() {
+  const list = document.getElementById('mission-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const done = getCompletedMissions();
+
+  if (serverMissions.length === 0) {
+    list.innerHTML = '<div class="diff-hint">No missions available</div>';
+    return;
+  }
+
+  // Default selection: first mission
+  if (!selectedMissionId || !serverMissions.some(m => m.id === selectedMissionId)) {
+    selectedMissionId = serverMissions[0].id;
+  }
+
+  for (const m of serverMissions) {
+    const item = document.createElement('div');
+    item.className = 'mission-item' + (m.id === selectedMissionId ? ' selected' : '');
+    const diffColor = MISSION_DIFF_COLORS[m.difficulty] || '#888';
+    item.innerHTML = `
+      <span class="mission-name">${esc(m.name)}</span>
+      <span class="mission-diff" style="color:${diffColor}">${esc(m.difficulty.toUpperCase())}</span>
+      ${done.includes(m.id) ? '<span class="mission-done">✓</span>' : ''}
+      <div class="mission-desc">${esc(m.desc)}</div>
+    `;
+    item.addEventListener('click', () => {
+      selectedMissionId = m.id;
+      list.querySelectorAll('.mission-item').forEach(el => el.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+    list.appendChild(item);
+  }
+}
+
+function selectSoloGameMode(mode) {
+  soloGameMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('selected', b.dataset.mode === mode));
+  document.getElementById('mode-hint').textContent = MODE_HINTS[mode] || '';
+  document.getElementById('skirmish-options')?.classList.toggle('hidden', mode !== 'skirmish');
+  document.getElementById('mission-list')?.classList.toggle('hidden', mode !== 'mission');
+  if (mode === 'mission') buildMissionList();
+}
 
 let selectedSoloDiff = 'easy';
 
@@ -321,11 +428,17 @@ function buildSoloShipGrid() {
 }
 
 function setupSoloUI() {
-  // Difficulty buttons
-  document.querySelectorAll('.diff-btn').forEach(btn => {
+  // Mode tabs (skirmish / mission / endless)
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectSoloGameMode(btn.dataset.mode));
+  });
+  document.getElementById('mode-hint').textContent = MODE_HINTS.skirmish;
+
+  // Difficulty buttons (skirmish only)
+  document.querySelectorAll('#skirmish-options .diff-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedSoloDiff = btn.dataset.diff;
-      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('#skirmish-options .diff-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       document.getElementById('diff-hint').textContent = DIFF_HINTS[selectedSoloDiff] || '';
     });
@@ -344,7 +457,10 @@ function setupSoloUI() {
     killFeed = [];
     activePowerups = [];
     _pendingStart = true;  // wait for arena message
-    if (!net.send({ type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff })) {
+    const arenaId = document.getElementById('solo-arena-select')?.value || 'random';
+    const payload = { type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff, arenaId, mode: soloGameMode };
+    if (soloGameMode === 'mission') payload.missionId = selectedMissionId;
+    if (!net.send(payload)) {
       showMenuError('Connection lost. Refresh to reconnect.');
       soloMode = false;
       _pendingStart = false;
@@ -411,17 +527,37 @@ function saveScore(msg) {
     kills:      msg.kills || 0,
     deaths:     msg.deaths || 0,
     difficulty: msg.difficulty || 'easy',
+    mode:       msg.mode || 'skirmish',
+    wave:       msg.wave || null,
     victory:    !!msg.victory,
     timestamp:  Date.now(),
   });
   // Keep only last 100 entries
   if (all.length > 100) all.splice(0, all.length - 100);
   localStorage.setItem(LS_KEY, JSON.stringify(all));
+
+  // Track completed missions
+  if (msg.mode === 'mission' && msg.victory && msg.missionId) {
+    const done = getCompletedMissions();
+    if (!done.includes(msg.missionId)) {
+      done.push(msg.missionId);
+      localStorage.setItem(LS_MISSIONS_KEY, JSON.stringify(done));
+    }
+  }
 }
 
 function buildLeaderboard(diff) {
-  const all    = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-  const scores = all.filter(s => s.difficulty === diff)
+  const all = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+
+  // Endless tab: its own columns (wave reached)
+  const isEndless = diff === 'endless';
+  document.getElementById('lb-head').innerHTML = isEndless
+    ? '<tr><th>#</th><th>NAME</th><th>SCORE</th><th>WAVE</th><th>K</th><th>DATE</th></tr>'
+    : '<tr><th>#</th><th>NAME</th><th>SCORE</th><th>K</th><th>D</th><th>DATE</th></tr>';
+
+  const scores = all.filter(s => isEndless
+      ? s.mode === 'endless'
+      : s.mode !== 'endless' && s.difficulty === diff)
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 10);
   const tbody  = document.getElementById('lb-body');
@@ -435,9 +571,16 @@ function buildLeaderboard(diff) {
   scores.forEach((s, i) => {
     const date = new Date(s.timestamp).toLocaleDateString();
     const tr   = document.createElement('tr');
-    tr.innerHTML = `
+    tr.innerHTML = isEndless ? `
       <td>${i + 1}</td>
-      <td>${s.name}${s.victory ? ' ✓' : ''}</td>
+      <td>${esc(s.name)}</td>
+      <td style="color:#FF6600">${s.score}</td>
+      <td>${s.wave || 1}</td>
+      <td>${s.kills}</td>
+      <td style="color:#666;font-size:12px">${date}</td>
+    ` : `
+      <td>${i + 1}</td>
+      <td>${esc(s.name)}${s.victory ? ' ✓' : ''}</td>
       <td style="color:#FF6600">${s.score}</td>
       <td>${s.kills}</td>
       <td>${s.deaths}</td>
@@ -452,23 +595,31 @@ function showSoloEnd(msg) {
   const banner = document.getElementById('solo-end-banner');
   const stats  = document.getElementById('solo-end-stats');
 
+  const mode = msg.mode || 'skirmish';
+
   if (msg.victory) {
     title.textContent  = 'VICTORY!';
     title.style.color  = '#FFD700';
-    banner.textContent = '🏆 All enemies defeated!';
+    banner.textContent = mode === 'mission'
+      ? `🏆 Mission complete: ${msg.missionName || ''}`
+      : '🏆 All enemies defeated!';
   } else {
     title.textContent  = 'GAME OVER';
     title.style.color  = '#FF4444';
-    banner.textContent = 'You ran out of lives.';
+    banner.textContent = mode === 'endless' ? 'The waves got you.'
+                      : mode === 'mission' ? `Mission failed: ${msg.missionName || ''}`
+                      : 'You ran out of lives.';
   }
 
   const diffName = (msg.difficulty || 'easy').toUpperCase();
-  stats.innerHTML = `
-    DIFFICULTY: ${diffName}<br>
+  let html = `DIFFICULTY: ${diffName}<br>`;
+  if (mode === 'endless') html += `WAVE REACHED: ${msg.wave || 1}<br>`;
+  html += `
     KILLS: ${msg.kills || 0}<br>
     DEATHS: ${msg.deaths || 0}<br>
     SCORE: <span style="color:#FF6600;font-size:20px">${msg.score || 0}</span>
   `;
+  stats.innerHTML = html;
 }
 
 // ── Game loop ─────────────────────────────────────────────────
@@ -587,6 +738,17 @@ function handleGameEvent(msg) {
       activePowerups.push({ ptype: msg.ptype, timer: 5 }); // show brief notification
       audio.powerupPickup();
       break;
+
+    case 'beam':
+      // Beam rendering lands in F6 — forward only if the hook exists
+      if (renderer) renderer.fx.spawnBeam?.(msg);
+      break;
+
+    case 'wave_start':
+      killFeed.unshift({ text: `⚑ WAVE ${msg.wave}`, color: '#FFD700', timer: 4 });
+      if (killFeed.length > 3) killFeed.length = 3;
+      audio.powerupPickup();
+      break;
   }
 }
 
@@ -618,7 +780,7 @@ function showScoreboard(msg) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td>${s.name}</td>
+      <td>${esc(s.name)}</td>
       <td>${s.kills}</td>
       <td>${s.deaths}</td>
       <td>${kd}</td>

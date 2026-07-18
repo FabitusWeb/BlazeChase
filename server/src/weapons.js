@@ -1,4 +1,4 @@
-// server/src/weapons.js — Weapons, bullets, hit detection
+// server/src/weapons.js — Weapons, bullets, beams, mines, hit detection
 
 'use strict';
 
@@ -6,40 +6,72 @@ const CONFIG = require('./config');
 const { isSolidAt, getTileAt } = require('./physics');
 
 let bulletIdCounter = 1;
+let mineIdCounter   = 1;
+
+const EMPTY_RESULT = () => ({ bullets: [], beams: [], mines: [] });
 
 /**
- * Attempt to fire bullets for a ship.
- * Returns array of new bullet objects (may be empty).
+ * Attempt to fire for a ship.
+ * @param {object} ship  — mutable ship state (uses ship.weapons inventory)
+ * @param {object} input — { fire, ... }
+ * @param {object} ctx   — { ships, arena } (needed for beam hitscan)
+ * @returns {{ bullets: Array, beams: Array, mines: Array }}
  */
-function fireBullets(ship, input) {
-  if (!ship.alive || !input.fire) return [];
-  if (ship.fireTimer > 0) return [];
+function fireBullets(ship, input, ctx = {}) {
+  if (!ship.alive || !input.fire) return EMPTY_RESULT();
+  if (ship.fireTimer > 0) return EMPTY_RESULT();
 
-  const wDef = CONFIG.WEAPONS[ship.weapon];
-  const isBlaster = ship.weapon === 0;
-
-  // Ammo check: blaster can always fire (slower when dry)
-  if (!isBlaster && ship.ammo < wDef.ammoCost) {
-    // Try to fire blaster as fallback
+  // ── Resolve weapon + ammo from the inventory ─────────────
+  // Ammo -1 = infinite. Fall back to blaster (0) when the selected
+  // weapon is not owned or lacks ammo for a shot.
+  let wDef = CONFIG.WEAPONS[ship.weapon];
+  let ammo = ship.weapons ? ship.weapons[ship.weapon] : undefined;
+  if (!wDef || ammo === undefined || (ammo !== -1 && ammo < wDef.ammoCost)) {
     ship.weapon = 0;
-    return fireBullets(ship, input);
+    wDef = CONFIG.WEAPONS[0];
+    ammo = ship.weapons[0];
   }
 
-  const baseFireRate = (isBlaster && ship.ammo < wDef.ammoCost) ? wDef.fireRate * 2 : wDef.fireRate;
-  ship.fireTimer = baseFireRate;
-
-  // Deduct ammo
-  if (ship.ammo >= wDef.ammoCost) {
-    ship.ammo -= wDef.ammoCost;
-    ship.ammo  = Math.max(0, ship.ammo);
+  // Deduct ammo (never for infinite weapons)
+  if (ammo !== -1) {
+    ship.weapons[ship.weapon] = Math.max(0, ammo - wDef.ammoCost);
   }
+
+  // Fire rate (rapidfire modifier halves it)
+  const mods = ship.modifiers || {};
+  ship.fireTimer = wDef.fireRate * (mods.rapidfire > 0 ? 0.5 : 1);
+
+  // ── Beam weapon (LASER CANNON) — hitscan, no projectile ──
+  if (wDef.beam) {
+    return { bullets: [], beams: [fireBeam(ship, wDef, ctx)], mines: [] };
+  }
+
+  // ── Mine layer (MINES) — no projectile ───────────────────
+  if (wDef.lay === 'mine') {
+    const mine = {
+      id:       mineIdCounter++,
+      x:        ship.x,
+      y:        ship.y,
+      ownerId:  ship.id,
+      armTimer: CONFIG.MINE.ARM_TIME,
+    };
+    return { bullets: [], beams: [], mines: [mine] };
+  }
+
+  // ── Projectile weapons ───────────────────────────────────
+  let count = wDef.count;
+  if (mods.tripleshot > 0)      count *= 3;
+  else if (mods.doubleshot > 0) count *= 2;
+
+  const homing = wDef.homing || mods.seeking > 0;
+  const angles = getBulletAngles(wDef, ship.angle, count);
 
   const bullets = [];
-  const angles  = getBulletAngles(ship.weapon, ship.angle);
-
-  for (const angle of angles) {
-    const offsetX = Math.cos(angle + Math.PI/2) * getParallelOffset(ship.weapon, angles.indexOf(angle));
-    const offsetY = Math.sin(angle + Math.PI/2) * getParallelOffset(ship.weapon, angles.indexOf(angle));
+  for (let i = 0; i < angles.length; i++) {
+    const angle  = angles[i];
+    const offset = getParallelOffset(wDef.id, i, angles.length);
+    const offsetX = Math.cos(angle + Math.PI / 2) * offset;
+    const offsetY = Math.sin(angle + Math.PI / 2) * offset;
 
     bullets.push({
       id:       bulletIdCounter++,
@@ -51,44 +83,138 @@ function fireBullets(ship, input) {
       vy:       Math.sin(angle) * wDef.speed,
       damage:   wDef.damage,
       size:     wDef.size,
-      homing:   wDef.homing,
+      homing,
+      erratic:  !!wDef.erratic,
+      aoe:      wDef.aoe ? { radius: wDef.aoe.radius, damage: wDef.aoe.damage } : null,
       lifetime: CONFIG.BULLET_LIFETIME,
     });
   }
 
-  return bullets;
+  return { bullets, beams: [], mines: [] };
 }
 
-function getBulletAngles(weaponId, baseAngle) {
-  const wDef = CONFIG.WEAPONS[weaponId];
-  switch (weaponId) {
-    case 0: // BLASTER
-    case 3: // MISSILE
-    case 4: // RAPID
-    case 5: // PLASMA
-      return [baseAngle + (Math.random() - 0.5) * wDef.spread * 2];
-    case 1: // DOUBLE — 2 parallel bullets
-      return [baseAngle, baseAngle];
-    case 2: // SPREAD — 3 bullets in fan
-      return [baseAngle - wDef.spread, baseAngle, baseAngle + wDef.spread];
-    default:
-      return [baseAngle];
+/**
+ * Bullet angles for a shot: single-bullet weapons get random jitter
+ * within ±spread, multi-bullet shots fan symmetrically by spread steps.
+ */
+function getBulletAngles(wDef, baseAngle, count) {
+  if (count <= 1) {
+    return [baseAngle + (Math.random() - 0.5) * wDef.spread * 2];
   }
+  const angles = [];
+  for (let i = 0; i < count; i++) {
+    angles.push(baseAngle + (i - (count - 1) / 2) * wDef.spread);
+  }
+  return angles;
 }
 
-function getParallelOffset(weaponId, bulletIndex) {
+/**
+ * Lateral offset for DOUBLE-style parallel barrels.
+ */
+function getParallelOffset(weaponId, bulletIndex, count) {
   if (weaponId === 1) { // DOUBLE: offset left/right
-    return (bulletIndex === 0 ? -8 : 8);
+    return (bulletIndex - (count - 1) / 2) * 16;
   }
   return 0;
 }
 
 /**
+ * Hitscan beam: march from the ship nose along ship.angle (4px steps),
+ * stop at the first solid tile or first hittable enemy ship.
+ */
+function fireBeam(ship, wDef, ctx) {
+  const ships = ctx.ships || {};
+  const arena = ctx.arena;
+  const dx = Math.cos(ship.angle);
+  const dy = Math.sin(ship.angle);
+
+  const x1 = ship.x + dx * 20;
+  const y1 = ship.y + dy * 20;
+  let x2 = x1 + dx * wDef.beam.length;
+  let y2 = y1 + dy * wDef.beam.length;
+  let hitShipId = null;
+
+  const step = 4;
+  let stop = false;
+  for (let d = 0; d <= wDef.beam.length && !stop; d += step) {
+    const px = x1 + dx * d;
+    const py = y1 + dy * d;
+    if (arena && isSolidAt(arena.tiles, px, py)) {
+      x2 = px; y2 = py;
+      break;
+    }
+    for (const s of Object.values(ships)) {
+      if (s.id === ship.id || !s.alive || s.invulnerable) continue;
+      if (Math.hypot(s.x - px, s.y - py) <= CONFIG.SHIP_RADIUS + 4) {
+        x2 = px; y2 = py;
+        hitShipId = s.id;
+        stop = true;
+        break;
+      }
+    }
+  }
+
+  return { x1, y1, x2, y2, hitShipId, weapon: wDef.id, ownerId: ship.id };
+}
+
+/**
+ * Update all mines for one tick.
+ * Returns { survived, events } — events: { kind:'mine_explode', mine, x, y }
+ * Once armed, a mine explodes when ANY alive ship (owner included,
+ * Chase Ace 2 style) comes within CONFIG.MINE.TRIGGER_RADIUS.
+ */
+function updateMines(mines, ships, dt) {
+  const survived = [];
+  const events   = [];
+
+  for (const m of mines) {
+    if (m.armTimer > 0) {
+      m.armTimer -= dt;
+      survived.push(m);
+      continue;
+    }
+    let triggered = false;
+    for (const ship of Object.values(ships)) {
+      if (!ship.alive) continue;
+      if (Math.hypot(ship.x - m.x, ship.y - m.y) <= CONFIG.MINE.TRIGGER_RADIUS) {
+        triggered = true;
+        break;
+      }
+    }
+    if (triggered) {
+      events.push({ kind: 'mine_explode', mine: m, x: m.x, y: m.y });
+    } else {
+      survived.push(m);
+    }
+  }
+
+  return { survived, events };
+}
+
+/**
+ * Pure AoE damage computation (Chase Ace 2 style: owner included).
+ * Returns [{ ship, dmg }] for every alive, non-invulnerable ship in
+ * radius; damage falls off linearly to 50% at the edge.
+ * Does NOT apply damage — the caller applies it and handles kills.
+ */
+function explode(x, y, radius, damage, ownerId, ships) {
+  const hits = [];
+  for (const ship of Object.values(ships)) {
+    if (!ship.alive || ship.invulnerable) continue;
+    const dist = Math.hypot(ship.x - x, ship.y - y);
+    if (dist > radius) continue;
+    hits.push({ ship, dmg: Math.round(damage * (1 - 0.5 * dist / radius)) });
+  }
+  return hits;
+}
+
+/**
  * Update all bullets for one tick.
  * Returns { survived, events }
- * events: array of { kind:'bullet_hit'|'wall_hit', bullet, ship?, tx?, ty? }
+ * events: array of { kind:'bullet_hit'|'wall_hit'|'turret_hit', bullet, ship?, turret?, tx?, ty? }
+ * Turrets (optional) are destructible targets; a turret's own bullets pass through it.
  */
-function updateBullets(bullets, ships, arena, dt) {
+function updateBullets(bullets, ships, arena, dt, turrets = []) {
   const survived = [];
   const events   = [];
 
@@ -96,7 +222,15 @@ function updateBullets(bullets, ships, arena, dt) {
     b.lifetime -= dt;
     if (b.lifetime <= 0) continue;
 
-    // Homing logic (missiles)
+    // Erratic sputter (charge rockets): random heading jitter ±0.3 rad
+    if (b.erratic) {
+      const spd = Math.hypot(b.vx, b.vy);
+      const cur = Math.atan2(b.vy, b.vx) + (Math.random() - 0.5) * 0.6;
+      b.vx = Math.cos(cur) * spd;
+      b.vy = Math.sin(cur) * spd;
+    }
+
+    // Homing logic (missiles / seeking modifier)
     if (b.homing) {
       const target = findNearestEnemy(b, ships);
       if (target) {
@@ -131,6 +265,19 @@ function updateBullets(bullets, ships, arena, dt) {
       events.push({ kind: 'wall_hit', bullet: b, tx: col, ty: row, tileType });
       continue; // bullet destroyed
     }
+
+    // Turret collision (a turret never hits itself)
+    let turretHit = false;
+    for (const t of turrets) {
+      if (!t.alive) continue;
+      if (t.id === b.ownerId) continue;
+      if (Math.hypot(t.x - b.x, t.y - b.y) < 16 + b.size) {
+        events.push({ kind: 'turret_hit', bullet: b, turret: t });
+        turretHit = true;
+        break;
+      }
+    }
+    if (turretHit) continue;
 
     // Ship collision
     let hit = false;
@@ -170,4 +317,4 @@ function findNearestEnemy(bullet, ships) {
   return nearest;
 }
 
-module.exports = { fireBullets, updateBullets };
+module.exports = { fireBullets, updateBullets, updateMines, explode };
