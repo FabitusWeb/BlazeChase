@@ -27,6 +27,10 @@
 - Pattern test Game: istanziare `new Game(room, players, broadcast, opts)` senza `start()` e guidare `_update(dt)` / `_checkRoundEnd()` a mano; sempre `t.after(() => game.stop())` per pulire i timer.
 
 ## Roadmap prossime fasi
-- **F5 — Offline solo mode**: portare `physics.js`, `weapons.js`, `enemies.js`, `missions.js` nel client con game loop locale, così il single player funziona senza WebSocket (fallback quando il server è giù). Il server resta necessario solo per il multiplayer. Motivazione: down prod 16/06–18/07, un mese offline silenzioso.
-- Infra (fuori dal repo): restart policy `unless-stopped` per Coolify, uptime monitor su prod, memory limit container.
+- **F5 — Giocabilità**: fix heartbeat/disconnessione (timeout reale 15s, ora ~5s per bug), cap particelle anti-lag, overlay comandi in gioco (H).
+- **F6 — Grafica Chase Ace Deluxe**: ✅ F6.1 (starfield, muri industriali, fireball) + ✅ F6.2 (nastri fiamma frastagliati, fumo spirale, mattoni gialli distruttibili, metallo blu-grigio, HUD top AMMO/SHIELD, DANGER, GAME OVER stats). Riferimenti in `.refs-tmp/` (SPEC-VISIVA.md, MECCANICA.md = bibbia meccanica decodificata dai file originali).
+- **F7 — Hazards CA**: gravity zones, wormhole, one-way, porte/pistoni con trigger, path vehicles, fogger. Formati livelli originali decodificati (testo, sezioni in MECCANICA.md).
+- **F8 — Offline solo mode**: simulazione client-side (moduli server puri + shim CJS→ESM), fallback quando il server è giù. Carico browser trascurabile (<1ms/tick). Motivazione: down prod 16/06–18/07, un mese offline silenzioso.
+- **F9+ (idee)**: LAZER TRAP (tripwire), GAZ, billboards sui muri, ship select a 9 stats, campagne, tema circuito THINK, audio stile CA.
+- Infra (fuori dal repo): restart policy `unless-stopped` per Coolify ✅ (fatto da orion), uptime monitor su prod, memory limit container, webhook GitHub→Coolify per auto-deploy.
 

@@ -168,7 +168,8 @@ wss.on('connection', (ws) => {
   send(ws, { type: 'welcome', id, arenas: arenaList(), missions: missionList() });
 
   // Heartbeat (applicativo — i ping/pong WS nativi non passano attraverso alcuni proxy)
-  ws.isAlive = true;
+  // Timestamp dell'ultimo pong: tollera HEARTBEAT_TIMEOUT di silenzio prima di terminare
+  ws.lastPong = Date.now();
 
   // Rate limiting state
   let msgCount = 0;
@@ -190,7 +191,7 @@ wss.on('connection', (ws) => {
     if (!client) return;
 
     switch (msg.type) {
-      case 'pong':       ws.isAlive = true; break;
+      case 'pong':       ws.lastPong = Date.now(); break;
       case 'join':       handleJoin(ws, client, msg); break;
       case 'ready':      handleReady(ws, client); break;
       case 'input':      handleInput(ws, client, msg); break;
@@ -398,9 +399,10 @@ function handlePlaySolo(ws, client, msg) {
 // ── Heartbeat interval ────────────────────────────────────────────────────────
 
 const heartbeatInterval = setInterval(() => {
+  const now = Date.now();
   for (const ws of wss.clients) {
-    if (!ws.isAlive) { ws.terminate(); continue; }
-    ws.isAlive = false;
+    // Termina solo dopo HEARTBEAT_TIMEOUT di silenzio reale (tolera pong persi/ritardati)
+    if (now - ws.lastPong > CONFIG.HEARTBEAT_TIMEOUT) { ws.terminate(); continue; }
     send(ws, { type: 'ping' });
   }
 }, CONFIG.HEARTBEAT_INTERVAL);

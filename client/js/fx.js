@@ -279,6 +279,13 @@ export class FXSystem {
   }
 
   update(dt) {
+    // Budget particelle (anti-lag su macchine deboli): scarta le più vecchie
+    if (this.particles.length  > 400) this.particles.splice(0,  this.particles.length  - 400);
+    if (this.smoke.length      > 250) this.smoke.splice(0,      this.smoke.length      - 250);
+    if (this.ribbons.length    > 120) this.ribbons.splice(0,    this.ribbons.length    - 120);
+    if (this.fireballs.length  >  60) this.fireballs.splice(0,  this.fireballs.length  -  60);
+    if (this.shockwaves.length >  40) this.shockwaves.splice(0, this.shockwaves.length -  40);
+
     // Screen shake
     if (this._shakeDuration > 0) {
       this._shakeDuration -= dt;

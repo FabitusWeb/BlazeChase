@@ -133,6 +133,15 @@ window.addEventListener('DOMContentLoaded', () => {
     try { handleGameEvent(msg); } catch (e) { console.error('[BLAZE] event handler crash:', e, 'msg:', msg); }
   });
 
+  // Controls overlay: H toggles, ESC closes
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'h' || e.key === 'H') {
+      document.getElementById('controls-overlay')?.classList.toggle('hidden');
+    } else if (e.key === 'Escape') {
+      document.getElementById('controls-overlay')?.classList.add('hidden');
+    }
+  });
+
   setState(STATES.MENU);
 });
 
