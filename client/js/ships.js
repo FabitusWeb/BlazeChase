@@ -154,17 +154,34 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
     }
   }
 
-  // Main body
+  // Main body — metallic gradient nose → tail (Chase Ace hull shading)
   ctx.beginPath();
   const pts = shape.body;
   ctx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   ctx.closePath();
-  ctx.fillStyle = color;
-  ctx.fill();
-  if (!shadowOnly) {
+  if (shadowOnly) {
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else {
+    const minY = Math.min(...pts.map(p => p[1]));
+    const maxY = Math.max(...pts.map(p => p[1]));
+    const hullGrad = ctx.createLinearGradient(0, minY, 0, maxY);
+    hullGrad.addColorStop(0, '#ffffff');
+    hullGrad.addColorStop(0.25, color);
+    hullGrad.addColorStop(1, accent);
+    ctx.fillStyle = hullGrad;
+    ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Center panel line + nose accent
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(0, minY + 3);
+    ctx.lineTo(0, maxY - 4);
     ctx.stroke();
   }
 

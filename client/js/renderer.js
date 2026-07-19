@@ -19,6 +19,8 @@ export class Renderer {
 
     // Track previous angular velocity for skid marks
     this._prevAngle = {};
+    // Track bullet ids for muzzle flash / smoke trail spawning
+    this._bulletIds = new Set();
   }
 
   /**
@@ -55,6 +57,29 @@ export class Renderer {
     const shakeY = this.fx.shakeY;
     const camX = this.camX + shakeX;
     const camY = this.camY + shakeY;
+
+    // ── Chase Ace FX: engine exhaust, muzzle flashes, missile smoke ──
+    for (const p of state.players) {
+      if (p.alive && p.thrusting) {
+        const def = CONFIG.SHIPS[p.shipId || 0] || CONFIG.SHIPS[0];
+        this.fx.spawnExhaust(p.x, p.y, p.angle, def.color);
+      }
+    }
+
+    // Track bullet ids: new bullet → muzzle flash; smoky weapons → trail
+    const SMOKY_WEAPONS = new Set([3, 6, 7, 8]);  // MISSILE, MORTAR, MACRO MORTAR, CHARGE ROCKET
+    const currentIds = new Set();
+    for (const b of state.bullets || []) {
+      currentIds.add(b.id);
+      if (!this._bulletIds.has(b.id)) {
+        const wDef = CONFIG.WEAPONS[b.weapon] || CONFIG.WEAPONS[0];
+        this.fx.spawnMuzzle(b.x, b.y, Math.atan2(b.vy, b.vx), wDef.color);
+      }
+      if (SMOKY_WEAPONS.has(b.weapon)) {
+        this.fx.spawnSmokeTrail(b.x, b.y);
+      }
+    }
+    this._bulletIds = currentIds;
 
     // ── Clear ────────────────────────────────────────────────
     ctx.fillStyle = '#0a0a12';

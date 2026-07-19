@@ -26,3 +26,7 @@
 - **F4 completata** (working tree, non committata): modalità single player MISSIONS (6 missioni in `server/src/missions.js`, obiettivi eliminate/survive/turrets) ed ENDLESS (ondate AI crescenti, `waveComposition` in `game.js`). Il solo mode ora ha `mode`: 'skirmish' (default, invariato) | 'mission' | 'endless'. Messaggi: `play_solo` accetta `mode` + `missionId`; `welcome` porta `missions`; `solo_end` e `soloInfo` estesi con `mode, wave, objective, score`. Completamento missioni e leaderboard in localStorage client (`blazechase_missions`, `blazechase_scores`). 70/70 test verdi (`cd server && npm test`).
 - Pattern test Game: istanziare `new Game(room, players, broadcast, opts)` senza `start()` e guidare `_update(dt)` / `_checkRoundEnd()` a mano; sempre `t.after(() => game.stop())` per pulire i timer.
 
+## Roadmap prossime fasi
+- **F5 — Offline solo mode**: portare `physics.js`, `weapons.js`, `enemies.js`, `missions.js` nel client con game loop locale, così il single player funziona senza WebSocket (fallback quando il server è giù). Il server resta necessario solo per il multiplayer. Motivazione: down prod 16/06–18/07, un mese offline silenzioso.
+- Infra (fuori dal repo): restart policy `unless-stopped` per Coolify, uptime monitor su prod, memory limit container.
+

@@ -1,4 +1,6 @@
 // client/js/arena.js — Arena pre-renderer with offscreen canvases
+// Visual style: Chase Ace — dark metal floor panels, riveted walls,
+// yellow/black hazard stripes on wall edges facing open floor
 
 const T = CONFIG.TILE;
 const TS = CONFIG.TILE_SIZE;
@@ -35,7 +37,6 @@ export class ArenaRenderer {
     const ctx = this.arenaCtx;
     const ROWS = CONFIG.ARENA_ROWS;
     const COLS = CONFIG.ARENA_COLS;
-    const th   = this.theme;
 
     ctx.clearRect(0, 0, CONFIG.ARENA_WIDTH, CONFIG.ARENA_HEIGHT);
 
@@ -50,7 +51,6 @@ export class ArenaRenderer {
   }
 
   _drawTile(ctx, tile, x, y, c, r) {
-    const th = this.theme;
     switch (tile) {
       case T.FLOOR:
         this._drawFloor(ctx, x, y, c, r);
@@ -78,63 +78,154 @@ export class ArenaRenderer {
     }
   }
 
+  // ── Floor: deep space — starfield with faint nebula tint ──
   _drawFloor(ctx, x, y, c, r) {
     const th = this.theme;
-    // Subtle checkerboard variation
-    const shade = ((c + r) % 2 === 0) ? 1.0 : 0.92;
-    ctx.fillStyle = shadeColor(th.floor, shade);
+    const rng = seededRng(c * 7919 + r * 104729);
+
+    // Near-black space with a hint of theme-tinted depth
+    const grad = ctx.createRadialGradient(
+      x + TS * (0.3 + rng() * 0.4), y + TS * (0.3 + rng() * 0.4), 2,
+      x + TS / 2, y + TS / 2, TS * 0.9
+    );
+    grad.addColorStop(0, shadeColor(th.floor, 0.16));
+    grad.addColorStop(1, '#05060c');
+    ctx.fillStyle = grad;
     ctx.fillRect(x, y, TS, TS);
 
-    // Occasional bolt/rivet details
-    if ((c * 7 + r * 13) % 11 === 0) {
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    // Occasional faint nebula smudge (theme-colored, very subtle)
+    if (rng() > 0.75) {
+      const nx = x + rng() * TS;
+      const ny = y + rng() * TS;
+      const nr = 8 + rng() * 14;
+      const neb = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+      neb.addColorStop(0, hexA(th.floor, 0.10));
+      neb.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = neb;
       ctx.beginPath();
-      ctx.arc(x + TS * 0.25, y + TS * 0.25, 2, 0, Math.PI * 2);
-      ctx.arc(x + TS * 0.75, y + TS * 0.25, 2, 0, Math.PI * 2);
-      ctx.arc(x + TS * 0.25, y + TS * 0.75, 2, 0, Math.PI * 2);
-      ctx.arc(x + TS * 0.75, y + TS * 0.75, 2, 0, Math.PI * 2);
+      ctx.arc(nx, ny, nr, 0, TAU);
       ctx.fill();
+    }
+
+    // Stars (1–4 per tile, seeded → stable across re-renders)
+    const numStars = 1 + Math.floor(rng() * 3);
+    for (let i = 0; i < numStars; i++) {
+      const sx = x + 2 + rng() * (TS - 4);
+      const sy = y + 2 + rng() * (TS - 4);
+      const bright = 0.35 + rng() * 0.6;
+      const size = rng() > 0.85 ? 1.6 : 1;
+      ctx.fillStyle = rng() > 0.8
+        ? `rgba(180,200,255,${bright})`   // blue-white
+        : `rgba(255,255,255,${bright})`;
+      ctx.fillRect(sx, sy, size, size);
+      // Cross sparkle on the brightest
+      if (bright > 0.85) {
+        ctx.fillStyle = `rgba(255,255,255,${bright * 0.35})`;
+        ctx.fillRect(sx - 1.5, sy, 4, 1);
+        ctx.fillRect(sx, sy - 1.5, 1, 4);
+      }
     }
   }
 
+  // ── Solid wall: riveted metal segments + hazard edges ──
   _drawWallSolid(ctx, x, y, c, r) {
     const th = this.theme;
-    const isPerimeter = (r === 0 || r === CONFIG.ARENA_ROWS - 1 || c === 0 || c === CONFIG.ARENA_COLS - 1);
+    const rng = seededRng(c * 31337 + r * 733);
 
-    // Base
-    ctx.fillStyle = th.wall;
+    // Base metal
+    ctx.fillStyle = shadeColor(th.wall, 0.95 + rng() * 0.1);
     ctx.fillRect(x, y, TS, TS);
 
-    // 3D bevel — highlight top-left
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    // 2×2 metal sub-panels with grooves
+    const half = TS / 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + half, y);
+    ctx.lineTo(x + half, y + TS);
+    ctx.moveTo(x, y + half);
+    ctx.lineTo(x + TS, y + half);
+    ctx.stroke();
+
+    // Per-panel shading variation
+    for (let pr = 0; pr < 2; pr++) {
+      for (let pc = 0; pc < 2; pc++) {
+        if (rng() > 0.5) {
+          ctx.fillStyle = rng() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.10)';
+          ctx.fillRect(x + pc * half + 1, y + pr * half + 1, half - 2, half - 2);
+        }
+      }
+    }
+
+    // Rivets at panel corners
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    for (const [rx, ry] of [[3, 3], [TS - 3, 3], [3, TS - 3], [TS - 3, TS - 3]]) {
+      ctx.beginPath();
+      ctx.arc(x + rx, y + ry, 1.6, 0, TAU);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    for (const [rx, ry] of [[3, 3], [TS - 3, 3], [3, TS - 3], [TS - 3, TS - 3]]) {
+      ctx.beginPath();
+      ctx.arc(x + rx - 0.5, y + ry - 0.5, 0.8, 0, TAU);
+      ctx.fill();
+    }
+
+    // 3D bevel — highlight top-left, shadow bottom-right
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
     ctx.fillRect(x, y, TS, 3);
     ctx.fillRect(x, y, 3, TS);
-
-    // Shadow bottom-right
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(x, y + TS - 3, TS, 3);
     ctx.fillRect(x + TS - 3, y, 3, TS);
 
-    // Perimeter hazard stripes
-    if (isPerimeter) {
-      const stripeW = 8;
-      ctx.fillStyle = th.accent + '88';
-      for (let i = 0; i < TS / stripeW; i++) {
-        if (i % 2 === 0) {
-          if (r === 0 || r === CONFIG.ARENA_ROWS - 1) {
-            ctx.fillRect(x + i * stripeW, y, stripeW, TS);
-          } else {
-            ctx.fillRect(x, y + i * stripeW, TS, stripeW);
-          }
-        }
-      }
-      // Re-draw bevel on top
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
-      ctx.fillRect(x, y, TS, 2);
-      ctx.fillRect(x, y, 2, TS);
-    }
+    // Hazard stripes on edges facing open floor (the Chase Ace signature)
+    const hz = 7;  // strip width
+    if (this._isOpen(c, r - 1)) this._drawHazardStrip(ctx, x, y, TS, hz, true);          // top
+    if (this._isOpen(c, r + 1)) this._drawHazardStrip(ctx, x, y + TS - hz, TS, hz, true); // bottom
+    if (this._isOpen(c - 1, r)) this._drawHazardStrip(ctx, x, y, hz, TS, false);          // left
+    if (this._isOpen(c + 1, r)) this._drawHazardStrip(ctx, x + TS - hz, y, hz, TS, false); // right
   }
 
+  /** A tile ships can fly over (floor-like, hazard stripes face these). */
+  _isOpen(c, r) {
+    if (r < 0 || r >= CONFIG.ARENA_ROWS || c < 0 || c >= CONFIG.ARENA_COLS) return false;
+    const t = this.tiles[r][c];
+    return t === T.FLOOR || t === T.ACID || t === T.REFUEL || t === T.DEBRIS || t === T.WALL_DEST;
+  }
+
+  /** Yellow/black diagonal hazard strip. */
+  _drawHazardStrip(ctx, x, y, w, h, horizontal) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    ctx.fillStyle = '#151208';
+    ctx.fillRect(x, y, w, h);
+
+    ctx.strokeStyle = this.theme.accent;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    const step = 11;
+    if (horizontal) {
+      for (let i = -h; i < w + h; i += step) {
+        ctx.moveTo(x + i, y + h);
+        ctx.lineTo(x + i + h, y);
+      }
+    } else {
+      for (let i = -w; i < h + w; i += step) {
+        ctx.moveTo(x, y + i + w);
+        ctx.lineTo(x + w, y + i);
+      }
+    }
+    ctx.stroke();
+
+    // Inner edge highlight toward the floor side
+    ctx.restore();
+  }
+
+  // ── Destructible wall: bolted plate, cracks by damage ──
   _drawWallDest(ctx, x, y, c, r, hp) {
     const th = this.theme;
     const maxHp = CONFIG.WALL_DEST_HP;
@@ -143,6 +234,24 @@ export class ArenaRenderer {
     // Base color — slightly lighter than solid wall
     ctx.fillStyle = th.wallDest;
     ctx.fillRect(x, y, TS, TS);
+
+    // Plate gradient
+    const grad = ctx.createLinearGradient(x, y, x, y + TS);
+    grad.addColorStop(0, 'rgba(255,255,255,0.08)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, TS, TS);
+
+    // Bolt frame (it looks mounted, breakable)
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 3, y + 3, TS - 6, TS - 6);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    for (const [bx, by] of [[7, 7], [TS - 7, 7], [7, TS - 7], [TS - 7, TS - 7]]) {
+      ctx.beginPath();
+      ctx.arc(x + bx, y + by, 2, 0, TAU);
+      ctx.fill();
+    }
 
     // 3D bevel
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -249,7 +358,7 @@ export class ArenaRenderer {
       const sz = 3 + rng() * 6;
       ctx.save();
       ctx.translate(px, py);
-      ctx.rotate(rng() * Math.PI * 2);
+      ctx.rotate(rng() * TAU);
       ctx.fillRect(-sz/2, -sz/2, sz, sz * 0.6);
       ctx.restore();
     }
@@ -264,6 +373,17 @@ export class ArenaRenderer {
     const y = tr * TS;
     this.arenaCtx.clearRect(x, y, TS, TS);
     this._drawTile(this.arenaCtx, tileType, x, y, tc, tr);
+
+    // Adjacent solid walls may need hazard stripes added/removed
+    for (const [dc, dr] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nc = tc + dc, nr = tr + dr;
+      if (nr < 0 || nr >= CONFIG.ARENA_ROWS || nc < 0 || nc >= CONFIG.ARENA_COLS) continue;
+      if (this.tiles[nr][nc] === T.WALL_SOLID) {
+        const nx = nc * TS, ny = nr * TS;
+        this.arenaCtx.clearRect(nx, ny, TS, TS);
+        this._drawTile(this.arenaCtx, T.WALL_SOLID, nx, ny, nc, nr);
+      }
+    }
   }
 
   /** Add a burn mark at world position */
@@ -275,7 +395,7 @@ export class ArenaRenderer {
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(wx, wy, radius, 0, Math.PI * 2);
+    ctx.arc(wx, wy, radius, 0, TAU);
     ctx.fill();
   }
 
@@ -284,7 +404,7 @@ export class ArenaRenderer {
     const ctx = this.skidCtx;
     ctx.fillStyle = `rgba(0,0,0,${alpha * 0.12})`;
     ctx.beginPath();
-    ctx.arc(wx, wy, 2.5, 0, Math.PI * 2);
+    ctx.arc(wx, wy, 2.5, 0, TAU);
     ctx.fill();
   }
 
@@ -355,7 +475,7 @@ export class ArenaRenderer {
         ctx.strokeStyle = `rgba(60,220,60,${0.4 + rng() * 0.4})`;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.arc(bx, by, br, 0, TAU);
         ctx.stroke();
       }
     }
@@ -378,11 +498,22 @@ export class ArenaRenderer {
 
 // ── Utilities ─────────────────────────────────────────────────
 
+const TAU = Math.PI * 2;
+
 function shadeColor(hex, factor) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
+  const cl = (v) => Math.max(0, Math.min(255, Math.round(v * factor)));
+  return `rgb(${cl(r)},${cl(g)},${cl(b)})`;
+}
+
+/** hex color + alpha → rgba() string */
+function hexA(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function seededRng(seed) {
