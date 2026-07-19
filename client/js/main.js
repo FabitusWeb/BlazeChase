@@ -612,11 +612,16 @@ function showSoloEnd(msg) {
   }
 
   const diffName = (msg.difficulty || 'easy').toUpperCase();
+  const mm = Math.floor((msg.gameTime || 0) / 60);
+  const ss = String((msg.gameTime || 0) % 60).padStart(2, '0');
+  const hitPct = msg.shotsFired > 0 ? Math.round(100 * (msg.shotsHit || 0) / msg.shotsFired) : 0;
   let html = `DIFFICULTY: ${diffName}<br>`;
   if (mode === 'endless') html += `WAVE REACHED: ${msg.wave || 1}<br>`;
   html += `
-    KILLS: ${msg.kills || 0}<br>
-    DEATHS: ${msg.deaths || 0}<br>
+    TOTAL GAME TIME: ${mm}:${ss}<br>
+    SHOTS FIRED: ${msg.shotsFired || 0}<br>
+    KILLS: ${msg.kills || 0}  •  DEATHS: ${msg.deaths || 0}<br>
+    HIT PERCENTAGE: ${hitPct}%<br>
     SCORE: <span style="color:#FF6600;font-size:20px">${msg.score || 0}</span>
   `;
   stats.innerHTML = html;

@@ -66,8 +66,9 @@ export class Renderer {
       }
     }
 
-    // Track bullet ids: new bullet → muzzle flash; smoky weapons → trail
-    const SMOKY_WEAPONS = new Set([3, 6, 7, 8]);  // MISSILE, MORTAR, MACRO MORTAR, CHARGE ROCKET
+    // Track bullet ids: new bullet → muzzle flash; smoky/ring trails per weapon
+    const SMOKE_WEAPONS = new Set([3]);       // MISSILE → wiggly smoke trail
+    const RING_WEAPONS  = new Set([6, 7, 8]); // MORTAR / MACRO MORTAR / CHARGE ROCKET → white rings
     const currentIds = new Set();
     for (const b of state.bullets || []) {
       currentIds.add(b.id);
@@ -75,8 +76,10 @@ export class Renderer {
         const wDef = CONFIG.WEAPONS[b.weapon] || CONFIG.WEAPONS[0];
         this.fx.spawnMuzzle(b.x, b.y, Math.atan2(b.vy, b.vx), wDef.color);
       }
-      if (SMOKY_WEAPONS.has(b.weapon)) {
+      if (SMOKE_WEAPONS.has(b.weapon)) {
         this.fx.spawnSmokeTrail(b.x, b.y);
+      } else if (RING_WEAPONS.has(b.weapon)) {
+        this.fx.spawnRingTrail(b.x, b.y);
       }
     }
     this._bulletIds = currentIds;

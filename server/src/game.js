@@ -56,7 +56,11 @@ class Game {
     players.forEach((p, idx) => {
       const sp = this.arena.spawnPoints[idx % this.arena.spawnPoints.length];
       this.ships[p.id] = createShip(p, sp, idx);
+      // Stat tracking for the GAME OVER screen (humans only)
+      this.ships[p.id].shotsFired = 0;
+      this.ships[p.id].shotsHit   = 0;
     });
+    this._startTime = Date.now();
 
     // Solo mode: spawn AI ships
     this.aiShips = [];
@@ -306,6 +310,7 @@ class Game {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
       const { bullets, beams, mines } = fireBullets(ship, input, { ships: this.ships, arena: this.arena });
+      ship.shotsFired += bullets.length + beams.length + mines.length;
       this.bullets.push(...bullets);
       this._addMines(mines);
       this._handleBeams(beams);
@@ -422,6 +427,10 @@ class Game {
       const ship = ev.ship;
       this._applyDamage(ship, ev.bullet.damage);
       ship.hitFlashTimer = 0.15;
+
+      // Accuracy tracking (human owners only)
+      const owner = ev.bullet.ownerId ? this.ships[ev.bullet.ownerId] : null;
+      if (owner && !owner.isAI) owner.shotsHit++;
 
       this.events.push({
         type: 'event', kind: 'explosion',
@@ -688,6 +697,10 @@ class Game {
       wave:        this.soloGameMode === 'endless' ? this.wave : null,
       missionId:   this.mission ? this.mission.id   : null,
       missionName: this.mission ? this.mission.name : null,
+      // GAME OVER stats screen (CA Deluxe style)
+      gameTime:    Math.round((Date.now() - this._startTime) / 1000),
+      shotsFired:  humanShip?.shotsFired || 0,
+      shotsHit:    humanShip?.shotsHit   || 0,
     });
     this._endTimeout = setTimeout(() => {
       if (!this.running) return;

@@ -1,5 +1,6 @@
-// client/js/fx.js — Particle system, fireball explosions, smoke, screen shake
-// Visual style: Chase Ace — big overlapping fireballs, debris, smoke trails
+// client/js/fx.js — Particle system, flame-ribbon explosions, spiral smoke,
+// shock rings, engine wakes — Chase Ace Deluxe visual style (from gameplay video):
+// jagged flame ribbons + curling white smoke + multiple expanding rings
 
 const TAU = Math.PI * 2;
 
@@ -7,11 +8,11 @@ export class FXSystem {
   constructor(arenaRenderer) {
     this.arena    = arenaRenderer;  // for addBurnMark / addSkidMark
     this.particles  = [];   // { x, y, vx, vy, life, maxLife, size, color, rot, rotVel, square }
-    this.ribbons    = [];   // { cx, cy, tipX, tipY, cpX, cpY, color, width, life, maxLife }
-    this.shockwaves = [];   // { x, y, radius, maxRadius, life, maxLife, lineWidth }
+    this.ribbons    = [];   // { pts:[[x,y]..], color, width, life, maxLife } — jagged flame streaks
+    this.shockwaves = [];   // { x, y, radius, maxRadius, life, maxLife, lineWidth, color }
     this.flashes    = [];   // { x, y, radius, maxRadius, life, maxLife, color }
     this.fireballs  = [];   // { x, y, vx, vy, radius, maxRadius, life, maxLife }
-    this.smoke      = [];   // { x, y, vx, vy, size, life, maxLife, tint }
+    this.smoke      = [];   // { x, y, vx, vy, size, life, maxLife, tint, swirl }
 
     this.shakeX   = 0;
     this.shakeY   = 0;
@@ -34,14 +35,15 @@ export class FXSystem {
     }
   }
 
-  // ── Fireball cluster (Chase Ace style: overlapping fire blobs) ──
+  // ── Fireball cluster: only the bright core now (video shows ribbons,
+  //    not round blobs — keep few, small, additive) ──
   _spawnFireballs(wx, wy, count, maxRadius, spread) {
     for (let i = 0; i < count; i++) {
       const angle  = Math.random() * TAU;
       const dist   = Math.random() * spread;
-      const speed  = 20 + Math.random() * 70;
+      const speed  = 15 + Math.random() * 40;
       const maxR   = maxRadius * (0.5 + Math.random() * 0.7);
-      const maxLife = 0.35 + Math.random() * 0.25;
+      const maxLife = 0.28 + Math.random() * 0.18;
       this.fireballs.push({
         x: wx + Math.cos(angle) * dist,
         y: wy + Math.sin(angle) * dist,
@@ -55,55 +57,79 @@ export class FXSystem {
     }
   }
 
-  // ── Smoke burst after an explosion (lingering puffs) ──
+  // ── Curling smoke (spiral wisps that linger, Chase Ace signature) ──
   _spawnSmokeBurst(wx, wy, count, spread) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * TAU;
       const dist  = Math.random() * spread;
-      const speed = 15 + Math.random() * 40;
-      const maxLife = 0.9 + Math.random() * 0.7;
+      const speed = 30 + Math.random() * 60;
+      const maxLife = 1.2 + Math.random() * 1.0;
       this.smoke.push({
         x: wx + Math.cos(angle) * dist,
         y: wy + Math.sin(angle) * dist,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 12,   // drift slightly up
-        size: 6 + Math.random() * 10,
+        vy: Math.sin(angle) * speed - 10,
+        size: 4 + Math.random() * 7,
         life: maxLife,
         maxLife,
-        tint: 0.15 + Math.random() * 0.2,   // gray brightness
+        tint: 0.55 + Math.random() * 0.3,
+        swirl: (Math.random() - 0.5) * 6,   // rad/s — curls the trajectory
       });
     }
   }
 
-  /** Continuous smoke puff behind a missile/mortar (called per frame). */
+  /** Persistent wiggly smoke trail behind missiles (per frame). */
   spawnSmokeTrail(wx, wy) {
     this.smoke.push({
       x: wx + (Math.random() - 0.5) * 4,
       y: wy + (Math.random() - 0.5) * 4,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.5) * 12 - 6,
-      size: 3 + Math.random() * 4,
-      life: 0.5 + Math.random() * 0.3,
-      maxLife: 0.8,
-      tint: 0.35 + Math.random() * 0.2,
+      vx: (Math.random() - 0.5) * 14,
+      vy: (Math.random() - 0.5) * 14 - 4,
+      size: 3 + Math.random() * 3.5,
+      life: 0.9 + Math.random() * 0.5,
+      maxLife: 1.4,
+      tint: 0.6 + Math.random() * 0.2,
+      swirl: (Math.random() - 0.5) * 4,
     });
   }
 
-  /** Engine exhaust particles behind a thrusting ship (called per frame). */
+  /** Small expanding white ring behind mortar shells (per frame). */
+  spawnRingTrail(wx, wy) {
+    this.shockwaves.push({
+      x: wx, y: wy, radius: 2, maxRadius: 11,
+      life: 0.28, maxLife: 0.28, lineWidth: 1.3, color: '#E8F0FF',
+    });
+  }
+
+  /** White wiggly engine wake behind a thrusting ship (per frame). */
   spawnExhaust(wx, wy, angle, color) {
     const bx = wx - Math.cos(angle) * (CONFIG.SHIP_RADIUS + 4);
     const by = wy - Math.sin(angle) * (CONFIG.SHIP_RADIUS + 4);
-    this.particles.push({
-      x: bx + (Math.random() - 0.5) * 5,
-      y: by + (Math.random() - 0.5) * 5,
-      vx: -Math.cos(angle) * (60 + Math.random() * 50) + (Math.random() - 0.5) * 30,
-      vy: -Math.sin(angle) * (60 + Math.random() * 50) + (Math.random() - 0.5) * 30,
-      life: 0.15 + Math.random() * 0.15,
-      maxLife: 0.3,
-      size: 2 + Math.random() * 2.5,
-      color: Math.random() < 0.4 ? '#FFDD88' : (color || '#FF8800'),
-      square: false,
+    // White wake wisp (Chase Ace style: curling white smoke behind ships)
+    this.smoke.push({
+      x: bx + (Math.random() - 0.5) * 4,
+      y: by + (Math.random() - 0.5) * 4,
+      vx: -Math.cos(angle) * (30 + Math.random() * 25) + (Math.random() - 0.5) * 20,
+      vy: -Math.sin(angle) * (30 + Math.random() * 25) + (Math.random() - 0.5) * 20,
+      size: 2.5 + Math.random() * 2.5,
+      life: 0.5 + Math.random() * 0.35,
+      maxLife: 0.85,
+      tint: 0.75 + Math.random() * 0.2,
+      swirl: (Math.random() - 0.5) * 8,
     });
+    // Occasional hot core spark
+    if (Math.random() < 0.3) {
+      this.particles.push({
+        x: bx, y: by,
+        vx: -Math.cos(angle) * (70 + Math.random() * 40),
+        vy: -Math.sin(angle) * (70 + Math.random() * 40),
+        life: 0.12 + Math.random() * 0.1,
+        maxLife: 0.22,
+        size: 1.5 + Math.random() * 1.5,
+        color: Math.random() < 0.5 ? '#FFDD88' : (color || '#FF8800'),
+        square: false,
+      });
+    }
   }
 
   /** Muzzle flash when a new bullet appears. */
@@ -142,27 +168,24 @@ export class FXSystem {
         square: false,
       });
     }
-    // Tiny fireball pop even on small hits
-    this._spawnFireballs(wx, wy, 2, 12, 6);
+    this._spawnFireballs(wx, wy, 2, 10, 5);
   }
 
   // ── MEDIUM: wall break / missile ─────────────────────────
   _spawnMedium(wx, wy, color) {
-    // Flash
-    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 40, life: 0.2, maxLife: 0.2, color: '#FFFFFF' });
+    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 36, life: 0.16, maxLife: 0.16, color: '#FFFFFF' });
 
-    // Fireball cluster — the Chase Ace look
-    this._spawnFireballs(wx, wy, 7, 26, 14);
-    this._spawnSmokeBurst(wx, wy, 4, 10);
-
-    // A few ribbons on top for sharpness
-    const numRibbons = 6 + Math.floor(Math.random() * 3);
+    // Core glow (small) + jagged flame ribbons (the Chase Ace look)
+    this._spawnFireballs(wx, wy, 3, 18, 8);
+    const numRibbons = 9 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numRibbons; i++) {
-      this._addRibbon(wx, wy, i, numRibbons, 40 + Math.random() * 25, 0.35, i < 3 ? '#FFCC00' : '#FF6600');
+      const c = i % 3 === 0 ? '#FFCC44' : i % 3 === 1 ? '#FF7718' : '#FFB000';
+      this._addRibbon(wx, wy, i, numRibbons, 55 + Math.random() * 35, 0.5, c, 3 + Math.random() * 2.5);
     }
+    this._spawnSmokeBurst(wx, wy, 6, 10);
 
-    // Shockwave
-    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 55, life: 0.4, maxLife: 0.4, lineWidth: 2 });
+    // Bluish-white ring
+    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 55, life: 0.4, maxLife: 0.4, lineWidth: 2, color: '#CFE8FF' });
 
     // Debris (square particles)
     const numDebris = 8 + Math.floor(Math.random() * 5);
@@ -184,32 +207,27 @@ export class FXSystem {
     }
 
     this.screenShake(0.15, 4);
-
-    // Burn mark
     if (this.arena) this.arena.addBurnMark(wx, wy, 25);
   }
 
   // ── LARGE: ship death ────────────────────────────────────
   _spawnLarge(wx, wy, color) {
-    // Big flash
-    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 80, life: 0.18, maxLife: 0.18, color: '#FFFFFF' });
-    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 50, life: 0.25, maxLife: 0.25, color: '#FF8800' });
+    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 70, life: 0.16, maxLife: 0.16, color: '#FFFFFF' });
+    this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 45, life: 0.24, maxLife: 0.24, color: '#FF8800' });
 
-    // Big overlapping fireball cluster + lingering smoke
-    this._spawnFireballs(wx, wy, 14, 42, 26);
-    this._spawnSmokeBurst(wx, wy, 10, 22);
-
-    // Some ribbons for sharp streaks
-    const numRibbons = 10 + Math.floor(Math.random() * 4);
-    const colors = ['#FF6600', '#FFCC00', '#FFFFFF', '#FF4400', color || '#FF8800'];
+    // Core glow (small) + MANY long jagged flame ribbons spiralling out
+    this._spawnFireballs(wx, wy, 5, 28, 14);
+    const numRibbons = 16 + Math.floor(Math.random() * 5);
+    const colors = ['#FF7718', '#FFCC44', '#FFB000', '#FF5510', '#FFE080', color || '#FF8800'];
     for (let i = 0; i < numRibbons; i++) {
       const c = colors[Math.floor(Math.random() * colors.length)];
-      this._addRibbon(wx, wy, i, numRibbons, 60 + Math.random() * 35, 0.5, c, 3 + Math.random() * 3);
+      this._addRibbon(wx, wy, i, numRibbons, 85 + Math.random() * 55, 0.75, c, 3.5 + Math.random() * 3);
     }
+    this._spawnSmokeBurst(wx, wy, 14, 20);
 
-    // Double shockwave
-    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 80, life: 0.5, maxLife: 0.5, lineWidth: 3 });
-    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 120, life: 0.7, maxLife: 0.7, lineWidth: 1.5 });
+    // Double bluish-white ring (video: 2–3 concentric rings)
+    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 80,  life: 0.5, maxLife: 0.5, lineWidth: 3,   color: '#CFE8FF' });
+    this.shockwaves.push({ x: wx, y: wy, radius: 5, maxRadius: 120, life: 0.7, maxLife: 0.7, lineWidth: 1.5, color: '#8FB8E8' });
 
     // Lots of debris
     const numDebris = 16 + Math.floor(Math.random() * 6);
@@ -231,24 +249,28 @@ export class FXSystem {
     }
 
     this.screenShake(0.3, 8);
-
-    // Large burn mark
     if (this.arena) this.arena.addBurnMark(wx, wy, 45);
   }
 
+  /**
+   * Jagged flame ribbon: 4–6 segments with random lateral jitter,
+   * so the path looks ragged instead of a smooth curve.
+   */
   _addRibbon(cx, cy, index, total, length, maxLife, color, baseWidth) {
-    const angle = (index / total) * TAU + (Math.random() - 0.5) * 0.4;
-    const curveAngle = angle + (Math.random() - 0.5) * 1.2;
-    const curveLen   = length * (0.5 + Math.random() * 0.7);
-    const tipX = cx + Math.cos(angle) * length;
-    const tipY = cy + Math.sin(angle) * length;
-    const cpX  = cx + Math.cos(curveAngle) * curveLen;
-    const cpY  = cy + Math.sin(curveAngle) * curveLen;
-
+    const baseAngle = (index / total) * TAU + (Math.random() - 0.5) * 0.5;
+    const segs = 4 + Math.floor(Math.random() * 3);
+    const pts = [[cx, cy]];
+    let angle = baseAngle;
+    let px = cx, py = cy;
+    for (let s = 1; s <= segs; s++) {
+      angle += (Math.random() - 0.5) * 0.9;           // jitter → ragged edge
+      const segLen = (length / segs) * (0.7 + Math.random() * 0.6);
+      px += Math.cos(angle) * segLen;
+      py += Math.sin(angle) * segLen;
+      pts.push([px, py]);
+    }
     this.ribbons.push({
-      cx, cy,
-      tipX, tipY,
-      cpX, cpY,
+      pts,
       color,
       width: baseWidth ?? (2 + Math.random() * 2.5),
       life: maxLife + Math.random() * 0.1,
@@ -297,15 +319,23 @@ export class FXSystem {
       return true;
     });
 
-    // Smoke: drift, expand, fade slowly
+    // Smoke: drift with swirl (curling wisps), expand, fade slowly
     this.smoke = this.smoke.filter(s => {
       s.life -= dt;
       if (s.life <= 0) return false;
+      if (s.swirl) {
+        // Rotate velocity → spiral path
+        const w = s.swirl * dt;
+        const cos = Math.cos(w), sin = Math.sin(w);
+        const vx = s.vx * cos - s.vy * sin;
+        const vy = s.vx * sin + s.vy * cos;
+        s.vx = vx; s.vy = vy;
+      }
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      s.vx *= 0.96;
-      s.vy *= 0.96;
-      s.size += 14 * dt;   // puffs grow as they dissipate
+      s.vx *= 0.97;
+      s.vy *= 0.97;
+      s.size += 10 * dt;   // puffs grow as they dissipate
       return true;
     });
 
@@ -331,11 +361,10 @@ export class FXSystem {
   }
 
   draw(ctx, camX, camY) {
-    // ── Additive layer: flashes + fireballs (bright Chase Ace blobs) ──
+    // ── Additive layer: flashes + fireballs ──
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // Flashes
     for (const f of this.flashes) {
       const alpha = f.life / f.maxLife;
       const sx = f.x - camX;
@@ -350,9 +379,8 @@ export class FXSystem {
       ctx.fill();
     }
 
-    // Fireballs: white core → yellow → orange → dark red edge
     for (const f of this.fireballs) {
-      const frac  = f.life / f.maxLife;         // 1 → 0
+      const frac  = f.life / f.maxLife;
       const alpha = Math.min(1, frac * 2.2);
       const sx = f.x - camX;
       const sy = f.y - camY;
@@ -370,59 +398,53 @@ export class FXSystem {
 
     ctx.restore();
 
-    // ── Smoke (normal blending, on top of fire) ──
+    // ── Jagged flame ribbons (polyline, ragged) ──
+    for (const r of this.ribbons) {
+      const frac  = r.life / r.maxLife;
+      const alpha = Math.min(1, frac * 2.5) * frac;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth   = r.width * (0.4 + frac * 0.6);
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      ctx.beginPath();
+      ctx.moveTo(r.pts[0][0] - camX, r.pts[0][1] - camY);
+      for (let i = 1; i < r.pts.length; i++) {
+        ctx.lineTo(r.pts[i][0] - camX, r.pts[i][1] - camY);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── Smoke (curling wisps, normal blending) ──
     for (const s of this.smoke) {
       const frac  = s.life / s.maxLife;
-      const alpha = Math.min(0.45, frac * 0.6);
+      const alpha = Math.min(0.5, frac * 0.65);
       const v = Math.round(s.tint * 255);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillStyle = `rgb(${v},${v},${Math.min(255, v + 8)})`;
       ctx.beginPath();
       ctx.arc(s.x - camX, s.y - camY, s.size, 0, TAU);
       ctx.fill();
       ctx.restore();
     }
 
-    // Ribbons
-    for (const r of this.ribbons) {
-      const frac  = r.life / r.maxLife;
-      const alpha = Math.min(1, frac * 3) * frac;
-      const w     = r.width * frac;
-      const cx = r.cx - camX;
-      const cy = r.cy - camY;
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = r.color;
-      ctx.lineWidth   = w;
-      ctx.lineCap     = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.quadraticCurveTo(
-        r.cpX - camX, r.cpY - camY,
-        r.tipX - camX, r.tipY - camY
-      );
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Shockwaves
+    // ── Shock rings (bluish-white) ──
     for (const s of this.shockwaves) {
-      const alpha = (s.life / s.maxLife) * 0.7;
+      const alpha = (s.life / s.maxLife) * 0.75;
       ctx.save();
       ctx.globalAlpha  = alpha;
-      ctx.strokeStyle  = '#FFAA44';
+      ctx.strokeStyle  = s.color || '#FFAA44';
       ctx.lineWidth    = s.lineWidth * (s.life / s.maxLife);
-      ctx.shadowColor  = '#FF6600';
-      ctx.shadowBlur   = 6;
       ctx.beginPath();
       ctx.arc(s.x - camX, s.y - camY, s.radius, 0, TAU);
       ctx.stroke();
       ctx.restore();
     }
 
-    // Particles
+    // ── Particles ──
     for (const p of this.particles) {
       const alpha = Math.min(1, (p.life / p.maxLife) * 2);
       const sx = p.x - camX;

@@ -1,10 +1,14 @@
 // client/js/hud.js — HUD overlay (all in screen coordinates)
+// Chase Ace Deluxe style: AMMO bar top-left (green), SHIELD bar top-right
+// (orange), "CURRENT WEAPON" text on change, flashing DANGER at low shield
 
 const TAU = Math.PI * 2;
 
 export class HUD {
   constructor() {
     this._killFeedAnims = [];   // { text, color, y, alpha, timer }
+    this._lastWeapon      = null;
+    this._weaponTextUntil = 0;  // show "CURRENT WEAPON" until this time
   }
 
   /**
@@ -26,49 +30,65 @@ export class HUD {
     const maxAmmo   = def.ammo;
     const wDef    = CONFIG.WEAPONS[localPlayer.weapon || 0] || CONFIG.WEAPONS[0];
 
-    // ── Bottom-left: Shield + Ammo ──────────────────────────
-    const panelX = 14;
-    const panelY = H - 80;
-    const barW   = 160;
-    const barH   = 14;
-
-    // Panel background
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    _roundRect(ctx, panelX - 6, panelY - 6, barW + 60, 74, 6);
-    ctx.fill();
-
-    // Shield bar
-    const shieldFrac = Math.max(0, Math.min(1, (localPlayer.shield || 0) / maxShield));
-    const shieldColor = shieldFrac > 0.5 ? '#22AAFF' : shieldFrac > 0.25 ? '#FFAA00' : '#FF4444';
-    const shieldPulse = shieldFrac < 0.25 && Math.sin(time * 8) > 0;
-
-    ctx.fillStyle = '#111';
-    ctx.fillRect(panelX, panelY, barW, barH);
-    ctx.fillStyle = shieldPulse ? '#FF6666' : shieldColor;
-    ctx.fillRect(panelX, panelY, barW * shieldFrac, barH);
-    _barLabel(ctx, 'SHIELD', panelX, panelY - 13, shieldColor);
-
-    // Ammo bar — current weapon ammo from the inventory map
-    // (-1 / undefined = blaster infinite → full bar)
+    // ── Top-left: AMMO bar (green, CA Deluxe style) ─────────
     const curAmmo = localPlayer.weapons ? localPlayer.weapons[localPlayer.weapon || 0] : undefined;
     const ammoFrac = (curAmmo === undefined || curAmmo === -1)
       ? 1
-      : Math.max(0, Math.min(1, curAmmo / ((wDef.pickupAmmo || maxAmmo) * 1)));
-    const ammoY    = panelY + barH + 10;
-    ctx.fillStyle = '#111';
-    ctx.fillRect(panelX, ammoY, barW, barH);
-    ctx.fillStyle = '#FFCC22';
-    ctx.fillRect(panelX, ammoY, barW * ammoFrac, barH);
-    _barLabel(ctx, 'AMMO', panelX, ammoY - 13, '#FFCC22');
+      : Math.max(0, Math.min(1, curAmmo / (wDef.pickupAmmo || maxAmmo)));
 
-    // Weapon name
+    _topBar(ctx, 14, 8, 170, 12, ammoFrac, '#33CC44', 'AMMO');
+
+    // ── Top-right: SHIELD bar (orange, CA Deluxe style) ─────
+    const shieldFrac = Math.max(0, Math.min(1, (localPlayer.shield || 0) / maxShield));
+    _topBar(ctx, W - 184, 8, 170, 12, shieldFrac, '#EE8822', 'SHIELD', true);
+
+    // ── Top-center: "CURRENT WEAPON" on change (2s) ─────────
+    const curWeapon = localPlayer.weapon || 0;
+    if (this._lastWeapon !== null && curWeapon !== this._lastWeapon) {
+      this._weaponTextUntil = time + 2;
+    }
+    this._lastWeapon = curWeapon;
+    if (time < this._weaponTextUntil) {
+      ctx.save();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillText(`CURRENT WEAPON: ${wDef.name}`, W / 2, 6);
+      ctx.restore();
+    }
+
+    // ── Top-center: flashing DANGER at low shield ────────────
+    if (localPlayer.alive && shieldFrac < 0.25 && Math.sin(time * 6) > 0) {
+      ctx.save();
+      ctx.fillStyle = '#FF3333';
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 6;
+      ctx.fillText('DANGER', W / 2, time < this._weaponTextUntil ? 24 : 6);
+      ctx.restore();
+    }
+
+    // ── Bottom-left: Weapon name ─────────────────────────────
+    const panelX = 14;
+    const panelY = H - 44;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    _roundRect(ctx, panelX - 6, panelY - 6, 150, 34, 6);
+    ctx.fill();
     ctx.fillStyle = wDef.color;
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(wDef.name, panelX, panelY + barH * 2 + 28);
+    ctx.shadowColor = wDef.color;
+    ctx.shadowBlur = 6;
+    ctx.fillText(wDef.name, panelX, panelY + 16);
+    ctx.shadowBlur = 0;
 
-    // ── Bottom-right: Cooldowns + Lives ─────────────────────
+    // ── Bottom-right: Cooldowns ──────────────────────────────
     const cdX = W - 120;
     const cdY = H - 80;
 
@@ -86,7 +106,7 @@ export class HUD {
     if (soloInfo) {
       this._drawSoloHUD(ctx, soloInfo, W);
     } else {
-      // ── Top-right: Score display (multiplayer only) ─────────
+      // ── Below shield bar: Score display (multiplayer only) ──
       this._drawScores(ctx, allPlayers, W, time);
     }
 
@@ -101,7 +121,7 @@ export class HUD {
       ctx.font = 'bold 16px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillText('⚡ REFUELING', W / 2, 12);
+      ctx.fillText('⚡ REFUELING', W / 2, H - 24);
       ctx.globalAlpha = 1;
     }
 
@@ -120,7 +140,7 @@ export class HUD {
 
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    _roundRect(ctx, W - 180, 8, 168, players.length * 22 + 12, 4);
+    _roundRect(ctx, W - 180, 26, 168, players.length * 22 + 12, 4);
     ctx.fill();
 
     players.forEach((p, i) => {
@@ -129,11 +149,11 @@ export class HUD {
       ctx.font = 'bold 13px monospace';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(p.name || '?', W - 170, 16 + i * 22);
+      ctx.fillText(p.name || '?', W - 170, 34 + i * 22);
 
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'right';
-      ctx.fillText(`${p.kills || 0} / ${CONFIG.KILL_TARGET}`, W - 14, 16 + i * 22);
+      ctx.fillText(`${p.kills || 0} / ${CONFIG.KILL_TARGET}`, W - 14, 34 + i * 22);
     });
     ctx.restore();
   }
@@ -145,7 +165,7 @@ export class HUD {
 
     // Background
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    _roundRect(ctx, cx - 100, 6, 200, hasExtra ? 74 : 56, 5);
+    _roundRect(ctx, cx - 100, 26, 200, hasExtra ? 74 : 56, 5);
     ctx.fill();
 
     // Lives (hearts)
@@ -158,27 +178,27 @@ export class HUD {
       heartsStr += i < lives ? '\u2665' : '\u2661';  // ♥ or ♡
     }
     ctx.fillStyle = '#FF4444';
-    ctx.fillText(heartsStr, cx, 12);
+    ctx.fillText(heartsStr, cx, 32);
 
     ctx.font = 'bold 13px monospace';
     if (mode === 'endless') {
       ctx.fillStyle = '#FFD700';
-      ctx.fillText(`WAVE ${soloInfo.wave || 1}  •  SCORE ${soloInfo.score || 0}`, cx, 38);
+      ctx.fillText(`WAVE ${soloInfo.wave || 1}  •  SCORE ${soloInfo.score || 0}`, cx, 58);
       ctx.fillStyle = '#FF8800';
-      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 76);
     } else if (mode === 'mission' && soloInfo.objective) {
       const o = soloInfo.objective;
       const line = o.text === 'SURVIVE'
         ? `${o.text}: ${o.progress}s`
         : `${o.text}: ${o.progress}/${o.target}`;
       ctx.fillStyle = '#FFD700';
-      ctx.fillText(line, cx, 38);
+      ctx.fillText(line, cx, 58);
       ctx.fillStyle = '#FF8800';
-      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 76);
     } else {
       // Skirmish
       ctx.fillStyle = '#FF8800';
-      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 38);
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 58);
     }
   }
 
@@ -190,12 +210,12 @@ export class HUD {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       const tw = ctx.measureText(k.text).width + 16;
-      ctx.fillRect(W - tw - 8, 80 + i * 24, tw + 8, 20);
+      ctx.fillRect(W - tw - 8, 100 + i * 24, tw + 8, 20);
       ctx.fillStyle = k.color || '#FF6600';
       ctx.font = '12px monospace';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
-      ctx.fillText(k.text, W - 12, 83 + i * 24);
+      ctx.fillText(k.text, W - 12, 103 + i * 24);
     });
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -203,6 +223,37 @@ export class HUD {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+/** CA Deluxe top bar: dark slot + colored fill + label above */
+function _topBar(ctx, x, y, w, h, frac, color, label, alignRight = false) {
+  ctx.save();
+  // Slot
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  _roundRect(ctx, x - 3, y - 3, w + 6, h + 6, 3);
+  ctx.fill();
+  // Fill
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x, y, w, h);
+  if (frac > 0) {
+    const grad = ctx.createLinearGradient(x, y, x, y + h);
+    grad.addColorStop(0, '#FFFFFF66');
+    grad.addColorStop(0.25, color);
+    grad.addColorStop(1, color);
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w * frac, h);
+  }
+  // Border
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  // Label
+  ctx.fillStyle = color;
+  ctx.font = 'bold 8px monospace';
+  ctx.textAlign = alignRight ? 'right' : 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label, alignRight ? x + w : x, y - 2);
+  ctx.restore();
+}
 
 function _barLabel(ctx, text, x, y, color) {
   ctx.fillStyle = color + 'bb';

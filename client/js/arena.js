@@ -127,59 +127,72 @@ export class ArenaRenderer {
     }
   }
 
-  // ── Solid wall: riveted metal segments + hazard edges ──
+  // ── Solid wall: blue-gray metal panel, pillow bevel, vents & rivets ──
   _drawWallSolid(ctx, x, y, c, r) {
     const th = this.theme;
     const rng = seededRng(c * 31337 + r * 733);
 
-    // Base metal
-    ctx.fillStyle = shadeColor(th.wall, 0.95 + rng() * 0.1);
+    // Base metal — cool blue-gray (Chase Ace Deluxe walls)
+    const base = blendColor(th.wall, '#3a4a5c', 0.55);
+    ctx.fillStyle = shadeColor(base, 0.95 + rng() * 0.1);
     ctx.fillRect(x, y, TS, TS);
 
-    // 2×2 metal sub-panels with grooves
-    const half = TS / 2;
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x + half, y);
-    ctx.lineTo(x + half, y + TS);
-    ctx.moveTo(x, y + half);
-    ctx.lineTo(x + TS, y + half);
-    ctx.stroke();
+    // Pillow bevel: soft light from top-left, shadow bottom-right
+    const grad = ctx.createLinearGradient(x, y, x + TS, y + TS);
+    grad.addColorStop(0, 'rgba(255,255,255,0.28)');
+    grad.addColorStop(0.45, 'rgba(255,255,255,0.02)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.42)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, TS, TS);
 
-    // Per-panel shading variation
-    for (let pr = 0; pr < 2; pr++) {
-      for (let pc = 0; pc < 2; pc++) {
-        if (rng() > 0.5) {
-          ctx.fillStyle = rng() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.10)';
-          ctx.fillRect(x + pc * half + 1, y + pr * half + 1, half - 2, half - 2);
-        }
+    // Inner plate inset
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 3.5, y + 3.5, TS - 7, TS - 7);
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.strokeRect(x + 4.5, y + 4.5, TS - 9, TS - 9);
+
+    // Vents or circular port on some tiles (seeded → stable)
+    const feat = rng();
+    if (feat > 0.72) {
+      // Horizontal vent slots
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x + 10, y + 12 + i * 7, TS - 20, 3);
       }
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x + 10, y + 12 + i * 7 - 1, TS - 20, 1);
+      }
+    } else if (feat > 0.5) {
+      // Circular port
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x + TS / 2, y + TS / 2, 7, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x + TS / 2 - 1, y + TS / 2 - 1, 6, 0, TAU);
+      ctx.stroke();
     }
 
-    // Rivets at panel corners
+    // Rivets at corners
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     for (const [rx, ry] of [[3, 3], [TS - 3, 3], [3, TS - 3], [TS - 3, TS - 3]]) {
       ctx.beginPath();
       ctx.arc(x + rx, y + ry, 1.6, 0, TAU);
       ctx.fill();
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
     for (const [rx, ry] of [[3, 3], [TS - 3, 3], [3, TS - 3], [TS - 3, TS - 3]]) {
       ctx.beginPath();
       ctx.arc(x + rx - 0.5, y + ry - 0.5, 0.8, 0, TAU);
       ctx.fill();
     }
 
-    // 3D bevel — highlight top-left, shadow bottom-right
-    ctx.fillStyle = 'rgba(255,255,255,0.14)';
-    ctx.fillRect(x, y, TS, 3);
-    ctx.fillRect(x, y, 3, TS);
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(x, y + TS - 3, TS, 3);
-    ctx.fillRect(x + TS - 3, y, 3, TS);
-
-    // Hazard stripes on edges facing open floor (the Chase Ace signature)
+    // Hazard stripes on edges facing open floor (corner/edge trim)
     const hz = 7;  // strip width
     if (this._isOpen(c, r - 1)) this._drawHazardStrip(ctx, x, y, TS, hz, true);          // top
     if (this._isOpen(c, r + 1)) this._drawHazardStrip(ctx, x, y + TS - hz, TS, hz, true); // bottom
@@ -225,41 +238,38 @@ export class ArenaRenderer {
     ctx.restore();
   }
 
-  // ── Destructible wall: bolted plate, cracks by damage ──
+  // ── Destructible wall: yellow bricks with mortar lines (CA Deluxe) ──
   _drawWallDest(ctx, x, y, c, r, hp) {
-    const th = this.theme;
     const maxHp = CONFIG.WALL_DEST_HP;
     const frac  = hp / maxHp;  // 0=destroyed, 1=full
+    const rng = seededRng(c * 4243 + r * 991);
 
-    // Base color — slightly lighter than solid wall
-    ctx.fillStyle = th.wallDest;
+    const BRICK = '#c8a820';
+    const MORTAR = '#4a3a08';
+
+    // Mortar background
+    ctx.fillStyle = MORTAR;
     ctx.fillRect(x, y, TS, TS);
 
-    // Plate gradient
-    const grad = ctx.createLinearGradient(x, y, x, y + TS);
-    grad.addColorStop(0, 'rgba(255,255,255,0.08)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.25)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y, TS, TS);
-
-    // Bolt frame (it looks mounted, breakable)
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x + 3, y + 3, TS - 6, TS - 6);
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    for (const [bx, by] of [[7, 7], [TS - 7, 7], [7, TS - 7], [TS - 7, TS - 7]]) {
-      ctx.beginPath();
-      ctx.arc(x + bx, y + by, 2, 0, TAU);
-      ctx.fill();
+    // Two courses of bricks, offset (running bond)
+    const bh = TS / 2;           // brick height
+    const bw = TS / 2;           // brick width
+    for (let course = 0; course < 2; course++) {
+      const offset = course === 0 ? 0 : -bw / 2;
+      for (let i = -1; i < 3; i++) {
+        const bx = x + offset + i * bw;
+        const by = y + course * bh;
+        // Per-brick shade variation
+        ctx.fillStyle = shadeColor(BRICK, 0.88 + rng() * 0.24);
+        ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+        // Brick top light
+        ctx.fillStyle = 'rgba(255,255,255,0.16)';
+        ctx.fillRect(bx + 1, by + 1, bw - 2, 2);
+        // Brick bottom shade
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.fillRect(bx + 1, by + bh - 3, bw - 2, 2);
+      }
     }
-
-    // 3D bevel
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.fillRect(x, y, TS, 3);
-    ctx.fillRect(x, y, 3, TS);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(x, y + TS - 3, TS, 3);
-    ctx.fillRect(x + TS - 3, y, 3, TS);
 
     // Cracks based on damage
     if (frac < 0.95) {
@@ -514,6 +524,14 @@ function hexA(hex, alpha) {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** blend two hex colors, t = weight of b (0..1) → rgb() string */
+function blendColor(a, b, t) {
+  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
+  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
+  const m = (x, y) => Math.round(x + (y - x) * t);
+  return `rgb(${m(ar, br)},${m(ag, bg)},${m(ab, bb)})`;
 }
 
 function seededRng(seed) {
