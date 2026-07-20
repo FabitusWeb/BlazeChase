@@ -4,6 +4,7 @@ import { NetClient }    from './net.js';
 import { InputManager } from './input.js';
 import { Renderer }     from './renderer.js';
 import { AudioManager } from './audio.js';
+import { startOfflineGame, stopOfflineGame, offlineArenaList, offlineMissionList, OFFLINE_PLAYER_ID } from './offline.js';
 
 // ── Globals ───────────────────────────────────────────────────
 const net   = new NetClient();
@@ -17,6 +18,8 @@ let myShip      = 0;
 let myName      = 'Player';
 let soloMode    = false;
 let lastSoloDiff = 'easy';
+let offlineMode  = false;   // true after "GIOCA OFFLINE": solo runs locally
+let offlineGame  = null;    // local Game instance while an offline match runs
 let serverArenas  = [];   // arena list from the server welcome message
 let serverMissions = [];  // mission list from the server welcome message
 let soloGameMode  = 'skirmish';   // 'skirmish' | 'mission' | 'endless'
@@ -54,15 +57,19 @@ window.addEventListener('DOMContentLoaded', () => {
   net.on('disconnected', () => {
         showMenuError('Disconnected from server. Refresh to reconnect.');
     if (state !== STATES.MENU) setState(STATES.MENU);
+    if (state === STATES.MENU) showOfflineBanner();
   });
 
   net.on('error', () => {
     showMenuError('Connection error. Is the server running?');
+    if (state === STATES.MENU) showOfflineBanner();
   });
 
   net.on('welcome', (msg) => {
     myId  = msg.id;
     net.myId = myId;
+    offlineMode = false;   // server is reachable — back to online lists
+    hideOfflineBanner();
     serverArenas = msg.arenas || [];
     serverMissions = msg.missions || [];
     populateArenaSelects();
@@ -99,18 +106,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (currentRoom) updateLobbyUI(currentRoom);
   });
 
-  net.on('arena', (msg) => {
-    arenaData = msg;
-    net.clearStateBuffer();
-    killFeed = [];
-    activePowerups = [];
-    if (_soloTimeout) { clearTimeout(_soloTimeout); _soloTimeout = null; }
-    // If countdown already fired or solo waiting, start now
-    if (_pendingStart) {
-      _pendingStart = false;
-      try { startGame(); } catch (e) { console.error('[BLAZE] startGame error:', e); showMenuError('Game start error: ' + e.message); setState(STATES.MENU); }
-    }
-  });
+  net.on('arena', handleArenaMsg);
 
   net.on('round_end', (msg) => {
     stopGameLoop();
@@ -119,14 +115,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setState(STATES.SCOREBOARD);
   });
 
-  net.on('solo_end', (msg) => {
-    stopGameLoop();
-    input.stop();
-    soloMode = false;
-    try { saveScore(msg); } catch (e) { console.warn('saveScore error:', e); }
-    showSoloEnd(msg);
-    setState(STATES.SOLO_END);
-  });
+  net.on('solo_end', handleSoloEndMsg);
 
   // Game events
   net.on('event', (msg) => {
@@ -157,6 +146,16 @@ function setupMenuUI() {
   document.getElementById('btn-leaderboard').addEventListener('click', () => {
     setState(STATES.LEADERBOARD);
     buildLeaderboard('easy');
+  });
+
+  // Offline solo mode: server unreachable → play entirely in the browser
+  document.getElementById('btn-offline')?.addEventListener('click', () => {
+    offlineMode = true;
+    hideOfflineBanner();
+    populateArenaSelects();
+    setState(STATES.SOLO);
+    buildSoloShipGrid();
+    buildMissionList();
   });
 
   const btnCreate = document.getElementById('btn-create');
@@ -209,10 +208,65 @@ function showMenuError(msg) {
   setTimeout(() => el.classList.add('hidden'), 4000);
 }
 
+// ── Offline mode (F8) ───────────────────────────────────────
+function showOfflineBanner() {
+  document.getElementById('offline-banner')?.classList.remove('hidden');
+}
+
+function hideOfflineBanner() {
+  document.getElementById('offline-banner')?.classList.add('hidden');
+}
+
+// Shared handlers: used for server messages AND local offline Game broadcasts
+function handleArenaMsg(msg) {
+  arenaData = msg;
+  net.clearStateBuffer();
+  killFeed = [];
+  activePowerups = [];
+  if (_soloTimeout) { clearTimeout(_soloTimeout); _soloTimeout = null; }
+  // If countdown already fired or solo waiting, start now
+  if (_pendingStart) {
+    _pendingStart = false;
+    try { startGame(); } catch (e) { console.error('[BLAZE] startGame error:', e); showMenuError('Game start error: ' + e.message); setState(STATES.MENU); }
+  }
+}
+
+function handleSoloEndMsg(msg) {
+  stopGameLoop();
+  input.stop();
+  soloMode = false;
+  try { saveScore(msg); } catch (e) { console.warn('saveScore error:', e); }
+  showSoloEnd(msg);
+  setState(STATES.SOLO_END);
+}
+
+// Dispatch for broadcasts from the LOCAL Game (offline solo mode):
+// same handlers as net messages, but state goes straight to gameState
+// (no interpolation buffer — the simulation is local, there is no lag).
+function handleOfflineMessage(msg) {
+  switch (msg.type) {
+    case 'arena':
+      handleArenaMsg(msg);
+      break;
+    case 'state':
+      gameState = msg;
+      break;
+    case 'event':
+      try { handleGameEvent(msg); } catch (e) { console.error('[BLAZE] event handler crash:', e, 'msg:', msg); }
+      break;
+    case 'solo_end':
+      offlineGame = null;
+      stopOfflineGame();
+      handleSoloEndMsg(msg);
+      break;
+  }
+}
+
 // ── Lobby UI ──────────────────────────────────────────────────
 // Fill both arena <select> elements from the server-provided list
 function populateArenaSelects() {
-  const options = [{ id: 'random', name: 'RANDOM', difficulty: '' }, ...serverArenas];
+  const arenas = offlineMode ? offlineArenaList() : serverArenas;
+  const options = [{ id: 'random', name: 'RANDOM', difficulty: '' }, ...arenas];
   for (const id of ['arena-select', 'solo-arena-select']) {
     const sel = document.getElementById(id);
     if (!sel) continue;
@@ -359,18 +413,19 @@ function buildMissionList() {
   if (!list) return;
   list.innerHTML = '';
   const done = getCompletedMissions();
+  const missions = offlineMode ? offlineMissionList() : serverMissions;
 
-  if (serverMissions.length === 0) {
+  if (missions.length === 0) {
     list.innerHTML = '<div class="diff-hint">No missions available</div>';
     return;
   }
 
   // Default selection: first mission
-  if (!selectedMissionId || !serverMissions.some(m => m.id === selectedMissionId)) {
-    selectedMissionId = serverMissions[0].id;
+  if (!selectedMissionId || !missions.some(m => m.id === selectedMissionId)) {
+    selectedMissionId = missions[0].id;
   }
 
-  for (const m of serverMissions) {
+  for (const m of missions) {
     const item = document.createElement('div');
     item.className = 'mission-item' + (m.id === selectedMissionId ? ' selected' : '');
     const diffColor = MISSION_DIFF_COLORS[m.difficulty] || '#888';
@@ -457,6 +512,39 @@ function setupSoloUI() {
   document.getElementById('diff-hint').textContent = DIFF_HINTS.easy;
 
   document.getElementById('btn-solo-play')?.addEventListener('click', () => {
+    const arenaId = document.getElementById('solo-arena-select')?.value || 'random';
+
+    // Offline mode: run the Game locally, no server involved
+    if (offlineMode) {
+      myName = document.getElementById('solo-name').value.trim() || 'Player';
+      lastSoloDiff = selectedSoloDiff;
+      soloMode = true;
+      arenaData = null;
+      killFeed = [];
+      activePowerups = [];
+      _pendingStart = true;  // handleOfflineMessage('arena') → startGame()
+      try {
+        offlineGame = startOfflineGame({
+          mode:       soloGameMode,
+          difficulty: selectedSoloDiff,
+          arenaId,
+          missionId:  soloGameMode === 'mission' ? selectedMissionId : undefined,
+          ship:       myShip,
+          name:       myName,
+          onMessage:  handleOfflineMessage,
+        });
+      } catch (e) {
+        console.error('[BLAZE] offline start error:', e);
+        showMenuError('Offline game start error: ' + e.message);
+        soloMode = false;
+        _pendingStart = false;
+        offlineGame = null;
+        setState(STATES.SOLO);
+        buildSoloShipGrid();
+      }
+      return;
+    }
+
     if (!net.connected) { showMenuError('Not connected to server. Please wait...'); return; }
     const name = document.getElementById('solo-name').value.trim() || 'Player';
     myName = name;
@@ -466,7 +554,6 @@ function setupSoloUI() {
     killFeed = [];
     activePowerups = [];
     _pendingStart = true;  // wait for arena message
-    const arenaId = document.getElementById('solo-arena-select')?.value || 'random';
     const payload = { type: 'play_solo', name, ship: myShip, difficulty: selectedSoloDiff, arenaId, mode: soloGameMode };
     if (soloGameMode === 'mission') payload.missionId = selectedMissionId;
     if (!net.send(payload)) {
@@ -690,12 +777,18 @@ function gameLoop(now) {
     const keys = input.get();
     input.flush();
 
-    // Send input to server
-    net.send({ type: 'input', keys });
+    if (offlineGame) {
+      // Offline: feed the local simulation directly (state arrives via
+      // handleOfflineMessage, no interpolation needed)
+      offlineGame.receiveInput(OFFLINE_PLAYER_ID, { keys });
+    } else {
+      // Send input to server
+      net.send({ type: 'input', keys });
 
-    // Get latest interpolated state
-    const s = net.getInterpolatedState();
-    if (s) gameState = s;
+      // Get latest interpolated state
+      const s = net.getInterpolatedState();
+      if (s) gameState = s;
+    }
 
     if (gameState && renderer) {
       // Update kill feed timers
@@ -709,6 +802,7 @@ function gameLoop(now) {
   } catch (e) {
     console.error('[BLAZE] gameLoop crash:', e);
     stopGameLoop();
+    if (offlineGame) { stopOfflineGame(); offlineGame = null; }
     showMenuError('Game crashed: ' + e.message);
     setState(STATES.MENU);
     return;
@@ -764,6 +858,14 @@ function handleGameEvent(msg) {
     case 'wave_start':
       killFeed.unshift({ text: `⚑ WAVE ${msg.wave}`, color: '#FFD700', timer: 4 });
       if (killFeed.length > 3) killFeed.length = 3;
+      audio.powerupPickup();
+      break;
+
+    case 'wormhole':
+      if (renderer) {
+        renderer.fx.spawnExplosion(msg.fromX, msg.fromY, 'small', '#44DDFF');
+        renderer.fx.spawnExplosion(msg.toX, msg.toY, 'small', '#44DDFF');
+      }
       audio.powerupPickup();
       break;
   }

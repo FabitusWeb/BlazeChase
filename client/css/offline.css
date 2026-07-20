@@ -1,0 +1,19 @@
+/* client/css/offline.css — F8 offline solo mode banner */
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 10px 16px;
+  border: 1px solid #FF6600;
+  background: rgba(255, 102, 0, 0.12);
+  color: #FFCC99;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.offline-banner.hidden {
+  display: none;
+}

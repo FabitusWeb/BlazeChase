@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BLAZE CHASE</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/offline.css">
   <!-- Config must load before ES modules -->
   <script src="js/config.js"></script>
 </head>
@@ -33,6 +34,10 @@
       <button class="btn btn-primary" id="btn-create-confirm">CREATE</button>
     </div>
     <div id="menu-error" class="error-msg hidden"></div>
+    <div id="offline-banner" class="offline-banner hidden">
+      <span>Server unreachable — you can still play solo offline.</span>
+      <button class="btn btn-primary" id="btn-offline">GIOCA OFFLINE</button>
+    </div>
   </div>
 </div>
 
