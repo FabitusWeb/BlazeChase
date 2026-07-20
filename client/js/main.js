@@ -254,13 +254,16 @@ function handleArenaMsg(msg) {
 }
 
 function handleSoloEndMsg(msg) {
-  stopGameLoop();
-  input.stop();
-  soloMode = false;
   lastSoloParams = null;   // partita finita: niente da riprendere dopo un reconnect
   try { saveScore(msg); } catch (e) { console.warn('saveScore error:', e); }
-  showSoloEnd(msg);
-  setState(STATES.SOLO_END);
+  // Celebrazione: lascia giocare l'esplosione finale, la schermata arriva dopo
+  setTimeout(() => {
+    stopGameLoop();
+    input.stop();
+    soloMode = false;
+    showSoloEnd(msg);
+    setState(STATES.SOLO_END);
+  }, 2200);
 }
 
 // F5b: dopo un reconnect, riparte il solo con le stesse opzioni (il server

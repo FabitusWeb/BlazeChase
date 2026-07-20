@@ -73,11 +73,11 @@ export class HUD {
       ctx.restore();
     }
 
-    // ── Bottom-left: Weapon name ─────────────────────────────
+    // ── Bottom-left: Weapon name + inventory ───────────────
     const panelX = 14;
-    const panelY = H - 44;
+    const panelY = H - 58;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    _roundRect(ctx, panelX - 6, panelY - 6, 150, 34, 6);
+    _roundRect(ctx, panelX - 6, panelY - 6, 170, 48, 6);
     ctx.fill();
     ctx.fillStyle = wDef.color;
     ctx.font = 'bold 14px monospace';
@@ -85,8 +85,26 @@ export class HUD {
     ctx.textBaseline = 'alphabetic';
     ctx.shadowColor = wDef.color;
     ctx.shadowBlur = 6;
-    ctx.fillText(wDef.name, panelX, panelY + 16);
+    ctx.fillText(wDef.name, panelX, panelY + 14);
     ctx.shadowBlur = 0;
+
+    // Inventario armi: numero slot (tasti 1-9) + colore arma, corrente evidenziata
+    const ownedW = localPlayer.weapons
+      ? Object.keys(localPlayer.weapons).map(Number).sort((a, b) => a - b)
+      : [];
+    ownedW.forEach((wid, i) => {
+      const wd = CONFIG.WEAPONS[wid] || CONFIG.WEAPONS[0];
+      const bx = panelX + i * 20;
+      const isCur = wid === (localPlayer.weapon || 0);
+      ctx.globalAlpha = isCur ? 1 : 0.35;
+      ctx.fillStyle = wd.color;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(String(i + 1), bx + 7, panelY + 30);
+      ctx.fillRect(bx, panelY + 34, 14, 3);
+      ctx.globalAlpha = 1;
+    });
 
     // ── Bottom-right: Cooldowns ──────────────────────────────
     const cdX = W - 120;
@@ -96,8 +114,8 @@ export class HUD {
     _roundRect(ctx, cdX - 6, cdY - 6, 116, 74, 6);
     ctx.fill();
 
-    // Dash cooldown
-    _cooldownArc(ctx, cdX + 18, cdY + 18, 14, 1 - Math.min(1, (localPlayer.dashCooldown || 0) / CONFIG.DASH_COOLDOWN), '#FF6600', 'DASH');
+    // Turbo (SHIFT: sempre pronto, si accende mentre è tenuto)
+    _turboIndicator(ctx, cdX + 18, cdY + 18, 14, !!localPlayer.dashing);
 
     // Dodge cooldown
     _cooldownArc(ctx, cdX + 65, cdY + 18, 14, 1 - Math.min(1, (localPlayer.dodgeCooldown || 0) / CONFIG.DODGE_COOLDOWN), '#44AAFF', 'DODGE');
@@ -285,6 +303,30 @@ function _cooldownArc(ctx, cx, cy, r, frac, color, label) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(frac >= 1 ? 'RDY' : label, cx, cy + r + 10);
+}
+
+/** Turbo indicator: sempre pronto, illuminato mentre SHIFT è tenuto */
+function _turboIndicator(ctx, cx, cy, r, active) {
+  const color = active ? '#FFCC00' : '#555';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, TAU);
+  ctx.stroke();
+  if (active) {
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(255,204,0,0.7)');
+    grad.addColorStop(1, 'rgba(255,204,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fill();
+  }
+  ctx.fillStyle = color;
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('TURBO', cx, cy + r + 10);
 }
 
 function _powerupBadge(ctx, rx, ry, icon, color, remaining, max) {

@@ -47,11 +47,11 @@ function updateShip(ship, input, dt, arena) {
     if (ship.modifiers.rapidfire  > 0) ship.modifiers.rapidfire  -= dt;
   }
 
-  ship.dashing = ship.dashTimer > 0;
+  ship.dashing = !!(input.dash && !ship.dodging);   // turbo continuo (SHIFT tenuto)
   ship.dodging = ship.dodgeTimer > 0;
   ship.invulnerable = ship.invulnTimer > 0;
 
-  const speedMult = ship.speedBoostTimer > 0 ? 1.4 : 1.0;
+  const speedMult = (ship.speedBoostTimer > 0 ? 1.4 : 1.0) * (ship.dashing ? CONFIG.TURBO_FACTOR : 1.0);
   const maxSpeed  = def.speed * speedMult;
 
   // ── Dodge initiation ────────────────────────────────────
@@ -66,49 +66,35 @@ function updateShip(ship, input, dt, arena) {
     ship.invulnTimer   = Math.max(ship.invulnTimer, CONFIG.DODGE_INVULN);
   }
 
-  // ── Dash initiation ─────────────────────────────────────
-  if (input.dash && !ship.dashing && ship.dashCooldown <= 0 && !ship.dodging) {
-    ship.vx = Math.cos(ship.angle) * CONFIG.DASH_SPEED;
-    ship.vy = Math.sin(ship.angle) * CONFIG.DASH_SPEED;
-    ship.dashTimer    = CONFIG.DASH_DURATION;
-    ship.dashCooldown = CONFIG.DASH_COOLDOWN;
-  }
-
-  // ── Rotation (only when not dashing) ────────────────────
-  if (!ship.dashing) {
-    if (input.left)  ship.angle -= def.turn * dt;
-    if (input.right) ship.angle += def.turn * dt;
-    ship.angle = ((ship.angle % TAU) + TAU) % TAU;
-  }
+  // ── Rotation ────────────────────────────────────────────
+  if (input.left)  ship.angle -= def.turn * dt;
+  if (input.right) ship.angle += def.turn * dt;
+  ship.angle = ((ship.angle % TAU) + TAU) % TAU;
 
   // ── Thrust ──────────────────────────────────────────────
-  if (!ship.dashing) {
-    let accel = CONFIG.SHIP_ACCEL;
-    if (ship.onAcid) accel *= CONFIG.ACID_SLOW;
+  let accel = CONFIG.SHIP_ACCEL;
+  if (ship.onAcid) accel *= CONFIG.ACID_SLOW;
+  if (ship.dashing) accel *= CONFIG.TURBO_ACCEL;
 
-    if (input.up) {
-      ship.vx += Math.cos(ship.angle) * accel * dt;
-      ship.vy += Math.sin(ship.angle) * accel * dt;
-    }
-    if (input.down) {
-      ship.vx -= Math.cos(ship.angle) * accel * 0.5 * dt;
-      ship.vy -= Math.sin(ship.angle) * accel * 0.5 * dt;
-    }
+  if (input.up) {
+    ship.vx += Math.cos(ship.angle) * accel * dt;
+    ship.vy += Math.sin(ship.angle) * accel * dt;
+  }
+  if (input.down) {
+    ship.vx -= Math.cos(ship.angle) * accel * 0.5 * dt;
+    ship.vy -= Math.sin(ship.angle) * accel * 0.5 * dt;
   }
 
   // ── Friction ────────────────────────────────────────────
-  if (!ship.dashing) {
-    const frict = Math.pow(CONFIG.SHIP_FRICTION, dt * 60);
-    ship.vx *= frict;
-    ship.vy *= frict;
-  }
+  const frict = Math.pow(CONFIG.SHIP_FRICTION, dt * 60);
+  ship.vx *= frict;
+  ship.vy *= frict;
 
   // ── Speed cap ───────────────────────────────────────────
   const speed = Math.hypot(ship.vx, ship.vy);
-  const cap   = ship.dashing ? CONFIG.DASH_SPEED * 1.1 : maxSpeed;
-  if (speed > cap) {
-    ship.vx = (ship.vx / speed) * cap;
-    ship.vy = (ship.vy / speed) * cap;
+  if (speed > maxSpeed) {
+    ship.vx = (ship.vx / speed) * maxSpeed;
+    ship.vy = (ship.vy / speed) * maxSpeed;
   }
 
   // ── Angular velocity for client skid marks ──────────────

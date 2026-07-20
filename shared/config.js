@@ -35,7 +35,9 @@ const CONFIG = {
   // ── Ship physics (base — per-ship modifiers applied on top) ─
   SHIP_RADIUS:    14,
   SHIP_ACCEL:     900,   // snappy CA-style acceleration (was 500: troppo molle)
-  SHIP_FRICTION:  0.87,    // velocity multiplier per tick (dt-adjusted)
+  TURBO_FACTOR:   1.6,   // speed multiplier while SHIFT is held (CA-style turbo)
+  TURBO_ACCEL:    1.5,   // accel multiplier while turbo is held
+  SHIP_FRICTION:  0.95,    // velocity multiplier per tick (dt-adjusted) — glide stile CA (0.87 = troppo freno, cap mai raggiunto)
   DASH_SPEED:     650,
   DASH_DURATION:  0.14,
   DASH_COOLDOWN:  1.5,

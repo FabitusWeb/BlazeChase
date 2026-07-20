@@ -518,9 +518,143 @@ export class FXSystem {
     }
   }
 
+  /**
+   * Draw hazard objects from state: turrets (with rotating barrel), mines,
+   * black holes (from arena data), energy wave front.
+   */
+  drawHazards(ctx, state, camX, camY, time) {
+    const TSR = CONFIG.TILE_SIZE;
+
+    // ── Black holes (static, from arena data) ──
+    const bhs = this.arena?.arenaData?.hazards?.blackholes || [];
+    for (const bh of bhs) {
+      const sx = bh.x - camX;
+      const sy = bh.y - camY;
+      // Accretion ring (rotating arcs)
+      for (let i = 0; i < 3; i++) {
+        const a0 = time * (0.9 + i * 0.3) + i * 2.0;
+        ctx.save();
+        ctx.globalAlpha = 0.7 - i * 0.18;
+        ctx.strokeStyle = i === 0 ? '#BB66FF' : '#6633CC';
+        ctx.lineWidth = 2.5 - i * 0.6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 26 + i * 8, a0, a0 + Math.PI * 1.5);
+        ctx.stroke();
+        ctx.restore();
+      }
+      // Event horizon (dark core)
+      const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, 22);
+      grad.addColorStop(0, '#000000');
+      grad.addColorStop(0.75, '#05010F');
+      grad.addColorStop(1, 'rgba(80,40,160,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 22, 0, TAU);
+      ctx.fill();
+    }
+
+    // ── Mines (blinking red when armed) ──
+    for (const m of state.mines || []) {
+      const sx = m.x - camX;
+      const sy = m.y - camY;
+      ctx.save();
+      ctx.fillStyle = '#2A2A30';
+      ctx.strokeStyle = '#555560';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      // Spikes
+      ctx.strokeStyle = '#444450';
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        ctx.beginPath();
+        ctx.moveTo(sx + Math.cos(a) * 7, sy + Math.sin(a) * 7);
+        ctx.lineTo(sx + Math.cos(a) * 10, sy + Math.sin(a) * 10);
+        ctx.stroke();
+      }
+      if (m.armed) {
+        const blink = Math.sin(time * 8) > 0 ? 1 : 0.25;
+        ctx.fillStyle = `rgba(255,40,40,${blink})`;
+        ctx.shadowColor = '#FF2222';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ── Turrets (mount + dome + rotating barrel) ──
+    for (const t of state.turrets || []) {
+      const sx = t.x - camX;
+      const sy = t.y - camY;
+      ctx.save();
+      if (!t.alive) ctx.globalAlpha = 0.35;
+      // Mount plate
+      ctx.fillStyle = '#22242C';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.fillRect(sx - 14, sy - 14, 28, 28);
+      ctx.strokeRect(sx - 14, sy - 14, 28, 28);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.strokeRect(sx - 12.5, sy - 12.5, 25, 25);
+      // Barrel (rotates toward target angle)
+      const barrelColor = t.type === 'mortar' ? '#FFCC44' : '#FF8844';
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(t.angle || 0);
+      ctx.fillStyle = barrelColor;
+      ctx.fillRect(0, -3.5, 20, 7);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(0, -3.5, 20, 2);
+      ctx.restore();
+      // Dome
+      const dome = ctx.createRadialGradient(sx - 3, sy - 3, 1, sx, sy, 10);
+      dome.addColorStop(0, '#C8CCD8');
+      dome.addColorStop(0.6, t.type === 'mortar' ? '#8A7440' : '#8A5040');
+      dome.addColorStop(1, '#2A2028');
+      ctx.fillStyle = dome;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 9, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // HP arc when damaged
+      const maxHp = CONFIG.HAZARDS.TURRET_MISSILE.HP;
+      if (t.alive && t.hp < maxHp) {
+        ctx.strokeStyle = '#FF5544';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 13, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(0, t.hp / maxHp));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ── Energy wave front ──
+    if (state.wave) {
+      const isX = state.wave.axis === 'x';
+      const pos = isX ? state.wave.pos - camX : state.wave.pos - camY;
+      ctx.save();
+      for (let i = 0; i < 2; i++) {
+        ctx.strokeStyle = i === 0 ? 'rgba(120,220,255,0.9)' : 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = i === 0 ? 6 : 2;
+        ctx.shadowColor = '#66CCFF';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        if (isX) { ctx.moveTo(pos, 0); ctx.lineTo(pos, CONFIG.VIEWPORT_H); }
+        else     { ctx.moveTo(0, pos); ctx.lineTo(CONFIG.VIEWPORT_W, pos); }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   /** Draw floating power-ups */
-  drawPowerups(ctx, powerups, camX, camY, time) {
-    for (const p of powerups) {
+  drawPowerups(ctx, powerups, camX, camY, time) {    for (const p of powerups) {
       const def = CONFIG.POWERUPS[p.typeId] || CONFIG.POWERUPS[0];
       const sx = p.x - camX;
       const sy = p.y - camY + Math.sin(p.bobPhase + time * 2) * 4;

@@ -170,6 +170,7 @@ class Game {
     buf.dash         = !!keys.dash;
     buf.dodge        = !!keys.dodge;
     buf.switchWeapon = !!keys.switchWeapon;
+    buf.weaponSelect = keys.weaponSelect || 0;
   }
 
   /**
@@ -248,13 +249,19 @@ class Game {
     for (const [id, ship] of Object.entries(this.ships)) {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id];
-      if (input && input.switchWeapon && !input._prevSwitchWeapon && ship.alive) {
-        // Cycle only through OWNED weapon ids
-        const owned = Object.keys(ship.weapons).map(Number).sort((a, b) => a - b);
-        const idx   = owned.indexOf(ship.weapon);
+      if (!input) continue;
+      const owned = Object.keys(ship.weapons).map(Number).sort((a, b) => a - b);
+      // Selezione diretta con tasti 1-9 (n-esima arma posseduta)
+      if (input.weaponSelect > 0 && input.weaponSelect <= owned.length && ship.alive) {
+        ship.weapon = owned[input.weaponSelect - 1];
+        input.weaponSelect = 0;
+      }
+      // Q: cicla le armi possedute
+      if (input.switchWeapon && !input._prevSwitchWeapon && ship.alive) {
+        const idx = owned.indexOf(ship.weapon);
         ship.weapon = owned[(idx + 1) % owned.length];
       }
-      if (input) input._prevSwitchWeapon = input.switchWeapon;
+      input._prevSwitchWeapon = input.switchWeapon;
     }
 
     // ── Update human ships ─────────────────────────────────

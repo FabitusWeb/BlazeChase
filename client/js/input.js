@@ -34,6 +34,11 @@ export class InputManager {
   }
 
   get() {
+    // Selezione diretta arma con i tasti 1-9 (n-esima arma posseduta)
+    let weaponSelect = 0;
+    for (let n = 1; n <= 9; n++) {
+      if (this._justPressed['Digit' + n]) { weaponSelect = n; break; }
+    }
     return {
       up:           !!(this._keys['KeyW']     || this._keys['ArrowUp']),
       down:         !!(this._keys['KeyS']     || this._keys['ArrowDown']),
@@ -43,6 +48,7 @@ export class InputManager {
       dash:         !!(this._keys['ShiftLeft']  || this._keys['ShiftRight']),
       dodge:        !!(this._keys['ControlLeft'] || this._keys['ControlRight']),
       switchWeapon: !!(this._justPressed['KeyQ']),
+      weaponSelect,
     };
   }
 

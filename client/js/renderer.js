@@ -132,6 +132,9 @@ export class Renderer {
     // ── Power-ups ────────────────────────────────────────────
     this.fx.drawPowerups(ctx, state.powerups || [], camX, camY, this.time);
 
+    // ── Hazards: turrets, mines, black holes, wave ──────────
+    this.fx.drawHazards(ctx, state, camX, camY, this.time);
+
     // ── Bullets ──────────────────────────────────────────────
     this.fx.drawBullets(ctx, state.bullets || [], camX, camY);
 
