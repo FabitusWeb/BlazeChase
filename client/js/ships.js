@@ -63,20 +63,6 @@ export function drawShip(ctx, shipData, def, time, camX, camY) {
     if (Math.floor(time * 8) % 2 === 0) return;
   }
 
-  // Draw dash afterimages
-  if (shipData.dashing) {
-    for (let i = 1; i <= 3; i++) {
-      const ox = Math.cos(shipData.angle - Math.PI) * i * 12;
-      const oy = Math.sin(shipData.angle - Math.PI) * i * 12;
-      ctx.save();
-      ctx.globalAlpha = 0.2 / i;
-      ctx.translate(sx + ox, sy + oy);
-      ctx.rotate(angle);
-      _drawShipBody(ctx, shape, color, accent, false);
-      ctx.restore();
-    }
-  }
-
   ctx.save();
   ctx.translate(sx, sy);
   ctx.rotate(angle);
