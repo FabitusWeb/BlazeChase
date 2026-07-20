@@ -374,6 +374,291 @@ const LAYOUTS = [
       '########################################',
     ],
   },
+
+  // ── Chase Ace Deluxe homages ('ca-*') ──────────────────────
+  // Converted from the original CA Deluxe .lev levels (see
+  // server/tools/import-lev.mjs). Structure is faithful to the
+  // originals (blocks/walls rasterized from CA pixel rects onto
+  // our 40x30 grid) with small deliberate variations.
+  // CA features our engine does not support yet are dropped in
+  // every conversion (future F7b): DOORS, PISTONS, TRIGGERS/
+  // TRIGGERCOLLECTORS, PATHVEHICLES, BOXES, CANS, BUILDINGS,
+  // ONEWAY walls, OVERLAYS/GIZ/BGSTICKERS decorations.
+  {
+    // Source: levels/chase.LEV (3x3 screens, ADDON1.SET, 85 blocks).
+    // Dropped: 1 door, 2 pistons, 2 path vehicles, 1 destructible
+    // building, 4 STF cans, triggers.
+    // Variations: CA's 7 wormhole endpoints (2 multi-endpoint
+    // networks) reduced to two clean pairs; right refill bunker
+    // mirrored; acid trench on the right edge straightened;
+    // bottom-left acid pool kept but its enclosing solid wall
+    // thinned; 2 of the 6 original powerups relocated.
+    id: 'ca-chase',
+    name: 'CHASE',
+    difficulty: 'MEDIUM',
+    theme: 'DESERT',
+    map: [
+      '########################################',
+      '#......................................#',
+      '#........D###......#DD###D.............#',
+      '#........P###......##D###D.............#',
+      '#......................................#',
+      '#.....S..D........P......DD.........S..#',
+      '#......................................#',
+      '#...##.......................R##.......#',
+      '#...##........................#........#',
+      '#....D.DD........1........DD..D........#',
+      '#...##R##.................##R#.........#',
+      '#...##R##.......#.#.......##R#.........#',
+      '#...##.DD......###........DD.#.........#',
+      '#...#D.........##.##.........D.........#',
+      '#...DD...S.....##.##.P.......#.........#',
+      '#..2........................R..........#',
+      '#...........v............#DDDA.........#',
+      '#........###v#########...D.............#',
+      '#...........v.........#..D.............#',
+      '#....................#..#..............#',
+      '#.S......###########v#..D..............#',
+      '#........##########vv#..#..............#',
+      '#........#........1.....D..............#',
+      '#........#..AAA##..##...#..............#',
+      '#........#..AAA######...D....DDAD......#',
+      '#........#..AAA######...#....APPA......#',
+      '#.####.##...AAAA#####...D....D..D......#',
+      '#.#.2P.......................D..D......#',
+      '#.#....##.#############......DDDD......#',
+      '########################################',
+    ],
+  },
+  {
+    // Source: levels/complex/VIOLENT SKEW.LEV (4x2 screens, default
+    // tileset, 56 blocks, 3 turrets, 5 wormholes, 10 gravity zones).
+    // Dropped: 7 doors, trigger wiring for the turrets (CA turrets
+    // were trigger-activated; ours are always on), spawnable boxes.
+    // Variations: middle turret changed missile -> mortar (CA type
+    // 146 vs 214); top-right wormhole fort made destructible; 3-end
+    // "Worm" network reduced to one pair (the third endpoint became
+    // a powerup spot); 4 powerup spots added (original had none).
+    id: 'ca-violent-skew',
+    name: 'VIOLENT SKEW',
+    difficulty: 'HARD',
+    theme: 'INDUSTRIAL',
+    map: [
+      '########################################',
+      '#............D........P................#',
+      '#............D.1................S......#',
+      '#............D...............#.........#',
+      '#............DD.DDDDD.....DDDDDD.......#',
+      '#.............<<<...R.....DDD1DD.......#',
+      '#.............<<<.........DDDDDD.......#',
+      '#............DD.DDDDDDDD..DDDDDD.......#',
+      '#............D...<<..RRRR.DDDDDD.......#',
+      '#............D..DDDDDDDDD.........P....#',
+      '#......D.....D..DDD.<<<...DDDDD........#',
+      '#.....DD.....D........S.DDDDD..........#',
+      '#.....DD.....D..DDDDD..................#',
+      '#..DDDDD.....D......DDDDD.........P....#',
+      '#...........DD.........................#',
+      '#..DDD......DD......DDDDD..............#',
+      '#...........DD..........DDDDD..........#',
+      '#######DDD.DD.D....DDDDDDD....DD.D.....#',
+      '####DDD.D##DD......D...................#',
+      '#...DDRRR##........D...................#',
+      '#..2DRR..##........D...................#',
+      '#...DDD..##...DDDDDD...................#',
+      '#...DRR........O...D...................#',
+      '#...DDD......DDDDDD.........2..........#',
+      '#...DDD......DDDDD.....................#',
+      '#.............DDD.D................P...#',
+      '#..............T..D....................#',
+      '#..S........DDDDDDD................S...#',
+      '#..........T.DDDD........DDDDDD........#',
+      '########################################',
+    ],
+  },
+  {
+    // Source: levels/simple/TRIPPLE A.LEV (3x3 screens, CLASSIC.SET,
+    // 27 blocks, 5 gravity zones, 6 refill zones). Open-combat ring.
+    // Dropped: 2 doors.
+    // Variations: destructible outer ring opened at the corners
+    // (spawn clearance), gravity strip moved one tile right into the
+    // maze corridor, 1 mine and 4 powerup spots added (original had
+    // none), inner maze right half simplified.
+    id: 'ca-tripple-a',
+    name: 'TRIPPLE A',
+    difficulty: 'EASY',
+    theme: 'ICE',
+    map: [
+      '########################################',
+      '#......................................#',
+      '#......................................#',
+      '#......................................#',
+      '#....DDDDDDDDDDDDDDDDDDDDDD............#',
+      '#....DD....................DD..........#',
+      '#....D..S................S..D..........#',
+      '#....D.........P...........D...........#',
+      '#....D..DDDDDDD............D...........#',
+      '#....D..DDDDDDD.....P......D...........#',
+      '#....D..DD...........P.....D...........#',
+      '#....D..DD..D...........D..D...........#',
+      '#....D.....RD..........DD..D...........#',
+      '#....D...DDDDDD........DD..D...........#',
+      '#....D...DDDDDD......D.DD..D...........#',
+      '#....D..P........DDDD.DD.v.D...........#',
+      '#....D.D...D..D..DDDD.DD.v.D...........#',
+      '#....D.DDD.DDDDDDDDDD.DD.v.D...........#',
+      '#....D.DDDDDDDDDDDDDD.D..v.D...........#',
+      '#....D.DDDDDDDDDRDDDD.D..v.D...........#',
+      '#....D.DDDDDDDDDDDDDD.D....D...........#',
+      '#....D.DDDDDDDD..DDDD.....M.D..........#',
+      '#....D.D...DDDD..DDD........D..........#',
+      '#....D.D...DDD..............D..........#',
+      '#....D......................D..........#',
+      '#....D..S................S..D..........#',
+      '#....DD....................DD..........#',
+      '#....DDDDDDDDDDDDDDDDDDDDDD............#',
+      '#......................................#',
+      '########################################',
+    ],
+  },
+  {
+    // Source: levels/intermediate/ROOMS OF CHAOS.LEV (3x3 screens,
+    // CLASSIC.SET, 78 blocks, 3 gravity zones, 3 wormholes).
+    // Maze-like room grid.
+    // Dropped: 12 doors (2 of them became permanent wall gaps in the
+    // left/right wall columns), 2 destructible buildings.
+    // Variations: 3-end wormhole network reduced to one pair (third
+    // endpoint became a powerup spot), gravity chamber kept but
+    // shortened by one row, 4 powerup spots added (original had 0).
+    id: 'ca-rooms-of-chaos',
+    name: 'ROOMS OF CHAOS',
+    difficulty: 'HARD',
+    theme: 'INDUSTRIAL',
+    map: [
+      '########################################',
+      '#...DDDD.DDDDD.DDDD.DDDDD.DDDD.........#',
+      '#..D1....DDDDDD.....DDD.D.....D........#',
+      '#..D.............DD....P......D........#',
+      '#..D.....DDDD....DD...........D........#',
+      '#..DDDDD.DDD.DDDDD......D..DD.D........#',
+      '#...DDDD.DDDD.DDDDDD.###..DDDD.........#',
+      '#..D.....DDDDD..D...D.........D........#',
+      '#..D.....DDD.D..D.S.D.........D........#',
+      '#..DR........D.1D.............D........#',
+      '#..D####.D..DD..D..DD.D..D.DDDD........#',
+      '#..D....D.....###....D..vvvvv.D........#',
+      '#.......D....D.......D..DDvvvvv........#',
+      '#..D....D....D....P.....DDvvvvR........#',
+      '#..D.........D........D.DDvvvvR........#',
+      '#..D....DD...D........D.vvvvvvR........#',
+      '#..D............DD..DDD.DDDDDDR........#',
+      '#...DD.......D........DD...............#',
+      '#.....DD....D........DD.....S..........#',
+      '#...S..D.####D................D........#',
+      '#......D..............DD......D........#',
+      '#..D...D....DD........DD......D...P....#',
+      '#..D...D.....#####DD.DD.DDD...D........#',
+      '#......D....DD.....D...DDD.............#',
+      '#..D.............S.....DRD....D........#',
+      '#..D........DD.....D...DDD....D........#',
+      '#..D........DD.....D..........D........#',
+      '#..D........DD.....D..P.......D........#',
+      '#...DDDD.DDDDD.DDDD.DDDDD.DDDD.........#',
+      '########################################',
+    ],
+  },
+  {
+    // Source: levels/intermediate/INTERCONECTION VOID.LEV (4x4
+    // screens, ADDON1.SET, 222 blocks, 26 gravity zones, 3 wormholes,
+    // 4 powerups). Gravity-saturated destructible maze.
+    // Dropped: 4 doors, 1 piston, trigger collectors.
+    // Variations: 8-way CA gravity rendered as 4-way (two big
+    // diagonal channels -> one '>' flow), 3 wormholes reduced to one
+    // pair, central refill vault kept, 4th spawn added at top-right
+    // (original had 2 spawns at the same point), 1 powerup relocated.
+    id: 'ca-interconnection-void',
+    name: 'INTERCONECTION VOID',
+    difficulty: 'HARD',
+    theme: 'LAVA',
+    map: [
+      '########################################',
+      '#DDDDDDDDDD............................#',
+      '#D..>>>>>>DDDDDDD.DDDDDD.DDD...........#',
+      '#D.DDD>>>>>DDDDD>DDDDDD>D>R............#',
+      '#D.DDDDDDDDDDDDDDDD>>>>>>>>D...........#',
+      '#D.DDDD...DDDDD>>>>>>>>>>>>D....S......#',
+      '#D.D.D.........DDDD>>>>>>>>D...........#',
+      '#D.D.D.............D..D>>>>DDDDD.......#',
+      '#.D..D................D>>>>.....PD.....#',
+      '#.D..D......S.........D>>>>.....D......#',
+      '#.DD.D...........DDDDDD.......S.D......#',
+      '#.DD.D..............DD..........D......#',
+      '#.....PDD.........DD............D......#',
+      '#..DD..1D..DDDDDDD..............D......#',
+      '#..DD...D...DRRRRDDDDDDDDDDD..DD.......#',
+      '#..DD..D...RRRRRR...DD.....D..D........#',
+      '#..DD..D..D.......DD.......D..D........#',
+      '#..DD..D.DD..DDDDD........DD..D........#',
+      '#..DD..D.D...D............D1..D........#',
+      '#..DD.DD.D...D............DD..D........#',
+      '#DRR.D.DD...DD.DDDDD.......D..D........#',
+      '#DDD.DDD..DD...D..P...DDDDDD..DDD......#',
+      '#..DD.....D....D.DD..D.>>>>>>>>RD......#',
+      '#..DD.......S........D>>>>>>>>>RD......#',
+      '#..DD>>DDD.........DDD>>>>>>>>>RD......#',
+      '#..DD>>DD..........DD>>>>>>>>>RD.......#',
+      '#..DD>>>.DDDDDDDDDD>>>>>>>#>>>.RD......#',
+      '#..DD>>>>>>>>>>>>>>>>>>>>>#>>P.RD......#',
+      '#...DDDDDDDDDDDDDDDDD>>>>>>>>DDRD......#',
+      '########################################',
+    ],
+  },
+  {
+    // Source: levels/crashsite exclamation.lev (3x3 screens,
+    // ADDON1.SET, 99 blocks, 25 hazard zones). Acid crater field over
+    // a destructible pillar grid.
+    // Dropped: 2 doors, 2 pistons, 1 spawnable box.
+    // Variations: top spawn moved out of the acid onto solid floor,
+    // one hazard pool drained at the south rim (reachable pocket),
+    // bottom-left spawn raised one row off the wall line, 4th
+    // powerup spot added (original had 3).
+    id: 'ca-crashsite',
+    name: 'CRASHSITE!',
+    difficulty: 'MEDIUM',
+    theme: 'TOXIC',
+    map: [
+      '########################################',
+      '#..........AAAAAAAAAAAAAAAAAAA.........#',
+      '#..........AAAAAAAAAAAAAAAAAAAAA.......#',
+      '#..AA.......AAA..............AAAA......#',
+      '#..AA.......AAAAAAAAAAAA......AAA......#',
+      '#.D.........AAA.....#AAAAAAA.AAAA......#',
+      '#.D.AA.........AA.AAA.AAAAAAAA.........#',
+      '#.D.AA.........AAAAAAAADDDDDDDD........#',
+      '#...AAA.....AAAAAAA....................#',
+      '#.D.AAA....AAAA......S.................#',
+      '#.D.AAAAADDAAA.........................#',
+      '#.D..AAAADDA...................D.......#',
+      '#.D......DD................RR..D.......#',
+      '#...S....DD................RR..D.......#',
+      '#.D...R........................D.......#',
+      '#.............S........................#',
+      '#.D......DD..............DDDDD.........#',
+      '#.D.....DDDDDDDDDDDDDDDDD.DDDDDD.......#',
+      '#.D.....DDD.DDDDD.DD.DDDD.DD...D.......#',
+      '#.D......DP.DDDDD.PD.DDD..DD...D.......#',
+      '#.......DDDDDDDDDDDDDDDDD.DDD..D.......#',
+      '#.D.....D...............D.DDD..D.......#',
+      '#.D.....DDDDDDDDDDDDDDD.D.DDD..D.......#',
+      '#.D.................RRD.D.DDD.PD.......#',
+      '#...................RRDDD.DDD..........#',
+      '#.D.........................D..D.......#',
+      '#.D.S.......................D.PD.......#',
+      '#.D..........DD.............D..D.......#',
+      '#.DDDDD.DDDD...DDDDD.DDDD.DDD..D.......#',
+      '########################################',
+    ],
+  },
 ];
 
 // ── Parser ───────────────────────────────────────────────────
