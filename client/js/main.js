@@ -726,6 +726,8 @@ function showSoloEnd(msg) {
 // ── Game loop ─────────────────────────────────────────────────
 let _pendingStart = false;
 let _soloTimeout  = null;
+let _fpsFrames    = 0;
+let _fpsTime      = 0;
 
 net.on('countdown', (msg) => {
   if (msg.value === 0) {
@@ -798,6 +800,23 @@ function gameLoop(now) {
       activePowerups = activePowerups.filter(p => { p.timer -= dt; return p.timer > 0; });
 
       renderer.frame(dt, gameState, myId, killFeed, activePowerups);
+
+      // Adaptive quality: fps < 45 per ~2s → scala risoluzione 2 → 1.5 → 1
+      _fpsFrames++;
+      _fpsTime += dt;
+      if (_fpsTime >= 2) {
+        const fps = _fpsFrames / _fpsTime;
+        _fpsFrames = 0;
+        _fpsTime = 0;
+        if (fps < 45 && renderer.resScale > 1) {
+          const next = renderer.resScale > 1.5 ? 1.5 : 1;
+          console.log(`[BLAZE] fps ${fps.toFixed(0)} → resScale ${next}`);
+          renderer.setResScale(next);
+          const canvas = document.getElementById('game-canvas');
+          canvas.width  = Math.floor(CONFIG.VIEWPORT_W * next);
+          canvas.height = Math.floor(CONFIG.VIEWPORT_H * next);
+        }
+      }
     }
   } catch (e) {
     console.error('[BLAZE] gameLoop crash:', e);

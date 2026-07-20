@@ -25,6 +25,17 @@ export class Renderer {
   }
 
   /**
+   * Adaptive quality: rebuild the arena renderer at a different resolution
+   * scale at runtime (fps too low → step down 2 → 1.5 → 1).
+   */
+  setResScale(s) {
+    if (s === this.resScale) return;
+    this.resScale = s;
+    this.arenaRenderer = new ArenaRenderer(this.arenaRenderer.arenaData, s);
+    this.fx.arena = this.arenaRenderer;
+  }
+
+  /**
    * Render one frame.
    * @param {number} dt       — seconds since last frame
    * @param {object} state    — { players, bullets, powerups }
