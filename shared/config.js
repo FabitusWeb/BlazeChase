@@ -34,7 +34,7 @@ const CONFIG = {
 
   // ── Ship physics (base — per-ship modifiers applied on top) ─
   SHIP_RADIUS:    14,
-  SHIP_ACCEL:     500,
+  SHIP_ACCEL:     900,   // snappy CA-style acceleration (was 500: troppo molle)
   SHIP_FRICTION:  0.87,    // velocity multiplier per tick (dt-adjusted)
   DASH_SPEED:     650,
   DASH_DURATION:  0.14,
@@ -60,11 +60,11 @@ const CONFIG = {
   // ── Ships ─────────────────────────────────────────────────
   // speed=px/s maxSpeed, turn=rad/s, shield=max HP, ammo=max ammo
   SHIPS: [
-    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 280, turn: 5.5, shield: 100, ammo: 200 },
-    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 340, turn: 6.5, shield:  70, ammo: 150 },
-    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 220, turn: 4.0, shield: 150, ammo: 300 },
-    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 300, turn: 5.8, shield:  80, ammo: 250 },
-    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 310, turn: 5.2, shield:  90, ammo: 180 },
+    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 320, turn: 5.5, shield: 100, ammo: 200 },
+    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 390, turn: 6.5, shield:  70, ammo: 150 },
+    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 250, turn: 4.0, shield: 150, ammo: 300 },
+    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 345, turn: 5.8, shield:  80, ammo: 250 },
+    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 355, turn: 5.2, shield:  90, ammo: 180 },
   ],
 
   // ── Weapons ──────────────────────────────────────────────

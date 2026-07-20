@@ -81,12 +81,6 @@ export function drawShip(ctx, shipData, def, time, camX, camY) {
   ctx.translate(sx, sy);
   ctx.rotate(angle);
 
-  // Slight tilt during turns
-  if (Math.abs(shipData.angularVel || 0) > 0.1) {
-    const tilt = (shipData.angularVel || 0) * 0.08;
-    ctx.transform(1, 0, tilt, 1, 0, 0);
-  }
-
   // Shadow
   ctx.save();
   ctx.translate(3, 3);

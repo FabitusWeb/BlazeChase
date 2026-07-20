@@ -9,8 +9,8 @@ const TAU = Math.PI * 2;
 
 // Difficulty profiles
 const DIFF = {
-  easy:   { speedMult: 0.55, aimSpread: 0.6,  reactionTime: 0.9,  dodgeChance: 0.0, shootInterval: 0.9,  turnMult: 0.7 },
-  medium: { speedMult: 0.78, aimSpread: 0.28, reactionTime: 0.45, dodgeChance: 0.2, shootInterval: 0.5,  turnMult: 0.9 },
+  easy:   { speedMult: 0.70, aimSpread: 0.6,  reactionTime: 0.9,  dodgeChance: 0.0, shootInterval: 0.9,  turnMult: 0.7 },
+  medium: { speedMult: 0.85, aimSpread: 0.28, reactionTime: 0.45, dodgeChance: 0.2, shootInterval: 0.5,  turnMult: 0.9 },
   hard:   { speedMult: 1.0,  aimSpread: 0.08, reactionTime: 0.18, dodgeChance: 0.5, shootInterval: 0.25, turnMult: 1.1 },
 };
 
