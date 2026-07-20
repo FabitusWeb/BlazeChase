@@ -10,9 +10,15 @@ export class NetClient {
     this.stateBuffer = [];   // [{tick, timestamp, players, bullets, powerups}]
 
     this.myId       = null;
+
+    // Auto-reconnect (F5b): un drop del proxy non deve buttare fuori il giocatore
+    this.autoReconnect = true;
+    this._reconnectAttempts = 0;
+    this._manualClose = false;
   }
 
   connect() {
+    this._manualClose = false;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const url   = `${proto}://${location.host}`;
 
@@ -20,12 +26,21 @@ export class NetClient {
 
     this.ws.addEventListener('open', () => {
       this.connected = true;
+      this._reconnectAttempts = 0;
       this._emit('connected');
     });
 
     this.ws.addEventListener('close', () => {
       this.connected = false;
       this._emit('disconnected');
+      if (this.autoReconnect && !this._manualClose) {
+        this._reconnectAttempts++;
+        const delay = Math.min(500 * Math.pow(2, this._reconnectAttempts - 1), 5000);
+        this._emit('reconnecting', { attempt: this._reconnectAttempts, delay });
+        setTimeout(() => {
+          if (!this.connected) this.connect();
+        }, delay);
+      }
     });
 
     this.ws.addEventListener('error', (e) => {
@@ -37,6 +52,12 @@ export class NetClient {
       try { msg = JSON.parse(e.data); } catch { return; }
       this._handleMessage(msg);
     });
+  }
+
+  /** Intentional close: no auto-reconnect after this. */
+  close() {
+    this._manualClose = true;
+    if (this.ws) this.ws.close();
   }
 
   _handleMessage(msg) {

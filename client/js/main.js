@@ -39,6 +39,11 @@ let lastFrameTime = 0;
 const STATES = { MENU: 'menu', SOLO: 'solo', LOBBY: 'lobby', COUNTDOWN: 'countdown', PLAYING: 'playing', SCOREBOARD: 'scoreboard', SOLO_END: 'solo-end', LEADERBOARD: 'leaderboard' };
 let state = STATES.MENU;
 
+// Auto-resume dopo reconnect (F5b): un drop del proxy non deve interrompere il gioco
+let everConnected  = false;
+let lastSoloParams = null;   // payload play_solo per riprendere il solo
+let lastJoinInfo   = null;   // { code?, name, ship } per rientrare in room
+
 function setState(s) {
   state = s;
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
@@ -55,9 +60,13 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('disconnected', () => {
-        showMenuError('Disconnected from server. Refresh to reconnect.');
+        showMenuError('Connessione persa — riconnessione…');
     if (state !== STATES.MENU) setState(STATES.MENU);
     if (state === STATES.MENU) showOfflineBanner();
+  });
+
+  net.on('reconnecting', () => {
+    showMenuError('Connessione persa, riconnessione…');
   });
 
   net.on('error', () => {
@@ -66,6 +75,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   net.on('welcome', (msg) => {
+    const isReconnect = everConnected;
+    everConnected = true;
     myId  = msg.id;
     net.myId = myId;
     offlineMode = false;   // server is reachable — back to online lists
@@ -73,6 +84,11 @@ window.addEventListener('DOMContentLoaded', () => {
     serverArenas = msg.arenas || [];
     serverMissions = msg.missions || [];
     populateArenaSelects();
+    // F5b: dopo un drop, riprendi la partita da dove eri
+    if (isReconnect) {
+      if (lastSoloParams) resumeSoloGame();
+      else if (lastJoinInfo) net.send({ type: 'join', ...lastJoinInfo });
+    }
   });
 
   net.on('lobby', (msg) => {
@@ -88,6 +104,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   net.on('error', (msg) => {
     if (msg.msg) showMenuError(msg.msg);
+    // Rejoin fallito dopo reconnect: smetti di riprovare
+    if (msg.msg && /Room not found|Game in progress|Room full/.test(msg.msg)) {
+      lastJoinInfo = null;
+    }
   });
 
   net.on('countdown', (msg) => {
@@ -178,6 +198,7 @@ function setupMenuUI() {
   document.getElementById('btn-create-confirm').addEventListener('click', () => {
     if (!net.connected) { showMenuError('Not connected to server. Please wait...'); return; }
     myName = document.getElementById('input-name-create').value.trim() || 'Player';
+    lastJoinInfo = { name: myName, ship: myShip };
     net.send({ type: 'join', name: myName, ship: myShip });
   });
 
@@ -186,6 +207,7 @@ function setupMenuUI() {
     const code = document.getElementById('input-code').value.toUpperCase().trim();
     myName = document.getElementById('input-name').value.trim() || 'Player';
     if (!code || code.length !== 4) { showMenuError('Enter a 4-letter room code'); return; }
+    lastJoinInfo = { code, name: myName, ship: myShip };
     net.send({ type: 'join', code, name: myName, ship: myShip });
   });
 
@@ -235,9 +257,25 @@ function handleSoloEndMsg(msg) {
   stopGameLoop();
   input.stop();
   soloMode = false;
+  lastSoloParams = null;   // partita finita: niente da riprendere dopo un reconnect
   try { saveScore(msg); } catch (e) { console.warn('saveScore error:', e); }
   showSoloEnd(msg);
   setState(STATES.SOLO_END);
+}
+
+// F5b: dopo un reconnect, riparte il solo con le stesse opzioni (il server
+// crea una nuova room privata — la vecchia è stata distrutta alla disconnessione)
+function resumeSoloGame() {
+  const p = lastSoloParams;
+  if (!p) return;
+  soloMode = true;
+  arenaData = null;
+  killFeed = [];
+  activePowerups = [];
+  _pendingStart = true;
+  if (!net.send(p)) return;   // non ancora connesso: riproverà al prossimo welcome
+  setState(STATES.COUNTDOWN);
+  document.getElementById('countdown-num').textContent = '...';
 }
 
 // Dispatch for broadcasts from the LOCAL Game (offline solo mode):
@@ -369,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-back-lobby')?.addEventListener('click', () => {
+    lastJoinInfo = null;   // esci dalla room: niente rejoin automatico
     setState(STATES.MENU);
   });
 
@@ -562,6 +601,7 @@ function setupSoloUI() {
       _pendingStart = false;
       return;
     }
+    lastSoloParams = payload;   // F5b: serve per riprendere dopo un reconnect
     // Feedback visivo: mostra countdown
     setState(STATES.COUNTDOWN);
     document.getElementById('countdown-num').textContent = '...';
