@@ -27,10 +27,15 @@
 - Pattern test Game: istanziare `new Game(room, players, broadcast, opts)` senza `start()` e guidare `_update(dt)` / `_checkRoundEnd()` a mano; sempre `t.after(() => game.stop())` per pulire i timer.
 
 ## Roadmap prossime fasi
-- **F5 — Giocabilità**: fix heartbeat/disconnessione (timeout reale 15s, ora ~5s per bug), cap particelle anti-lag, overlay comandi in gioco (H).
-- **F6 — Grafica Chase Ace Deluxe**: ✅ F6.1 (starfield, muri industriali, fireball) + ✅ F6.2 (nastri fiamma frastagliati, fumo spirale, mattoni gialli distruttibili, metallo blu-grigio, HUD top AMMO/SHIELD, DANGER, GAME OVER stats). Riferimenti in `.refs-tmp/` (SPEC-VISIVA.md, MECCANICA.md = bibbia meccanica decodificata dai file originali).
-- **F7 — Hazards CA**: gravity zones, wormhole, one-way, porte/pistoni con trigger, path vehicles, fogger. Formati livelli originali decodificati (testo, sezioni in MECCANICA.md).
-- **F8 — Offline solo mode**: simulazione client-side (moduli server puri + shim CJS→ESM), fallback quando il server è giù. Carico browser trascurabile (<1ms/tick). Motivazione: down prod 16/06–18/07, un mese offline silenzioso.
-- **F9+ (idee)**: LAZER TRAP (tripwire), GAZ, billboards sui muri, ship select a 9 stats, campagne, tema circuito THINK, audio stile CA.
-- Infra (fuori dal repo): restart policy `unless-stopped` per Coolify ✅ (fatto da orion), uptime monitor su prod, memory limit container, webhook GitHub→Coolify per auto-deploy.
+- **F5 — Giocabilità**: ✅ heartbeat, reconnect, cap particelle, overlay comandi, auto-reconnect F5b, risoluzione adattiva.
+- **F6 — Grafica CA Deluxe**: ✅ F6.1/F6.2 + bolt + rim light + HiDPI + rendering hazard.
+- **F7 — Hazards CA**: ✅ F7a (gravity, wormhole) + import 6 arene originali .lev (ca-chase, ca-violent-skew, ca-tripple-a, ca-rooms-of-chaos, ca-interconnection-void, ca-crashsite). Resta **F7b**: porte+trigger (bottoni rossi), pistoni/crusher, one-way, path vehicles — i livelli originali li usano (formati in MECCANICA.md).
+- **F8 — Offline solo mode**: ✅ simulazione client-side via build-sim.
+- **F10 — Sprite navi pre-renderizzate**: navi con look 3D/sprite CA (volumi, outline), il gap visivo maggiore rimasto.
+- **F9 — Audio stile CA**: WebAudio sullo stile degli 87 SFX originali (spari per arma, esplosioni juicy, motore, pickup, DANGER).
+- **F11a — Arsenale CA**: LAZER TRAP (tripwire), GAZ, STICKY BOMBS, SNEAKY/CONFUSED MISSILES, ARTILLERY, MICRO BLASTER, BOOMERANG, TIME BLAST, CENTERBLAST + powerup DEFLECTOR/POWERSHIELD2/HOMING TURRET/MINI TURRETS (schede POW* in MECCANICA.md).
+- **F11 — Palette CA**: stats navi/armi/AI ribilanciate sui valori originali decodificati (FANCYSMANCY, ENEMYIQ).
+- **F12 — UI stile CA**: menu giallo/blu, minimappa nel picker, ship select 9 stats + sketch.
+- **F13 — Arene varietà**: canali d'acqua, fratture, stanze tema circuito (da refs clean-room).
+- Infra (fuori dal repo): restart policy Coolify ✅, webhook auto-deploy ✅, fix polling proxy (30s, da orion), uptime monitor.
 
