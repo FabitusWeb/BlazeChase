@@ -6,10 +6,11 @@ import { HUD }           from './hud.js';
 import { drawShip }      from './ships.js';
 
 export class Renderer {
-  constructor(canvas, arenaData) {
+  constructor(canvas, arenaData, resScale = 1) {
     this.canvas        = canvas;
     this.ctx           = canvas.getContext('2d');
-    this.arenaRenderer = new ArenaRenderer(arenaData);
+    this.resScale      = resScale;   // HiDPI supersampling (1 = legacy)
+    this.arenaRenderer = new ArenaRenderer(arenaData, resScale);
     this.fx            = new FXSystem(this.arenaRenderer);
     this.hud           = new HUD();
 
@@ -37,6 +38,9 @@ export class Renderer {
     const ctx = this.ctx;
     const W   = CONFIG.VIEWPORT_W;
     const H   = CONFIG.VIEWPORT_H;
+
+    // HiDPI: tutto il disegno in coordinate logiche, scala via transform
+    ctx.setTransform(this.resScale, 0, 0, this.resScale, 0, 0);
 
     // ── Camera: follow local player ──────────────────────────
     const myPlayer = state.players.find(p => p.id === myId);

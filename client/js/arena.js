@@ -6,26 +6,30 @@ const T = CONFIG.TILE;
 const TS = CONFIG.TILE_SIZE;
 
 export class ArenaRenderer {
-  constructor(arenaData) {
+  constructor(arenaData, resScale = 1) {
     this.arenaData  = arenaData;
     this.tiles      = arenaData.tiles;
     this.wallHP     = arenaData.wallHP || [];
     this.theme      = CONFIG.THEMES[arenaData.theme] || CONFIG.THEMES.INDUSTRIAL;
+    this.resScale   = resScale;
 
     const W = CONFIG.ARENA_WIDTH;
     const H = CONFIG.ARENA_HEIGHT;
 
-    // Main arena offscreen canvas
-    this.arenaCanvas = new OffscreenCanvas(W, H);
+    // Offscreen canvases (HiDPI: risoluzione × resScale, coordinate logiche via transform)
+    this.arenaCanvas = new OffscreenCanvas(W * resScale, H * resScale);
     this.arenaCtx    = this.arenaCanvas.getContext('2d');
+    this.arenaCtx.setTransform(resScale, 0, 0, resScale, 0, 0);
 
     // Skid marks (accumulate, never cleared)
-    this.skidCanvas  = new OffscreenCanvas(W, H);
+    this.skidCanvas  = new OffscreenCanvas(W * resScale, H * resScale);
     this.skidCtx     = this.skidCanvas.getContext('2d');
+    this.skidCtx.setTransform(resScale, 0, 0, resScale, 0, 0);
 
     // Burn marks from explosions (accumulate)
-    this.burnCanvas  = new OffscreenCanvas(W, H);
+    this.burnCanvas  = new OffscreenCanvas(W * resScale, H * resScale);
     this.burnCtx     = this.burnCanvas.getContext('2d');
+    this.burnCtx.setTransform(resScale, 0, 0, resScale, 0, 0);
 
     // Track crack seed per destructible tile
     this.crackSeeds  = {};
@@ -425,23 +429,24 @@ export class ArenaRenderer {
   draw(ctx, camX, camY, time) {
     const vw = CONFIG.VIEWPORT_W;
     const vh = CONFIG.VIEWPORT_H;
+    const s  = this.resScale;
 
     // Clamp camera
     camX = Math.max(0, Math.min(CONFIG.ARENA_WIDTH  - vw, camX));
     camY = Math.max(0, Math.min(CONFIG.ARENA_HEIGHT - vh, camY));
 
-    // Draw pre-rendered arena
-    ctx.drawImage(this.arenaCanvas, camX, camY, vw, vh, 0, 0, vw, vh);
+    // Draw pre-rendered arena (source rect scalato per HiDPI)
+    ctx.drawImage(this.arenaCanvas, camX * s, camY * s, vw * s, vh * s, 0, 0, vw, vh);
 
     // Draw animated tile overlays (acid bubbles, refuel glow)
     this._drawAnimatedTiles(ctx, camX, camY, time);
 
     // Draw burn marks layer
-    ctx.drawImage(this.burnCanvas, camX, camY, vw, vh, 0, 0, vw, vh);
+    ctx.drawImage(this.burnCanvas, camX * s, camY * s, vw * s, vh * s, 0, 0, vw, vh);
 
     // Draw skid marks layer
     ctx.globalAlpha = 0.85;
-    ctx.drawImage(this.skidCanvas, camX, camY, vw, vh, 0, 0, vw, vh);
+    ctx.drawImage(this.skidCanvas, camX * s, camY * s, vw * s, vh * s, 0, 0, vw, vh);
     ctx.globalAlpha = 1;
   }
 

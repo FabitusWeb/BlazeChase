@@ -78,9 +78,11 @@ export class NetClient {
     const t = prev.timestamp === next.timestamp ? 1 :
       Math.max(0, Math.min(1, (now - prev.timestamp) / (next.timestamp - prev.timestamp)));
 
-    // Interpolate player positions
+    // Interpolate player positions — la nave locale usa lo stato più
+    // recente SENZA interpolazione (niente lag percepito sui comandi)
     const players = prev.players.map((pp, i) => {
       const np = next.players.find(p => p.id === pp.id) || pp;
+      if (np.id === this.myId) return { ...np };
       return {
         ...np,
         x:     lerp(pp.x, np.x, t),

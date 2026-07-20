@@ -657,10 +657,10 @@ function startGame() {
   setState(STATES.PLAYING);
 
   const canvas = document.getElementById('game-canvas');
-  resizeCanvas(canvas);
+  const resScale = resizeCanvas(canvas);
   window.addEventListener('resize', () => resizeCanvas(canvas));
 
-  renderer = new Renderer(canvas, arenaData);
+  renderer = new Renderer(canvas, arenaData, resScale);
   input.start();
   audio.init();
 
@@ -672,10 +672,13 @@ function resizeCanvas(canvas) {
   const vw = CONFIG.VIEWPORT_W;
   const vh = CONFIG.VIEWPORT_H;
   const scale = Math.min(window.innerWidth / vw, window.innerHeight / vh);
-  canvas.width  = vw;
-  canvas.height = vh;
+  // HiDPI: render interno fino a 2× la risoluzione logica (niente più blur/pixel)
+  const resScale = Math.min(Math.max(scale, 1), 2);
+  canvas.width  = Math.floor(vw * resScale);
+  canvas.height = Math.floor(vh * resScale);
   canvas.style.width  = Math.floor(vw * scale) + 'px';
   canvas.style.height = Math.floor(vh * scale) + 'px';
+  return resScale;
 }
 
 function gameLoop(now) {

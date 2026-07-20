@@ -5,8 +5,8 @@ const CONFIG = {
   // ── Network ──────────────────────────────────────────────
   WS_PORT: 3080,
   TICK_RATE: 60,
-  STATE_INTERVAL: 3,       // broadcast state every N ticks → 20 Hz
-  INTERP_DELAY: 100,       // ms client interpolation buffer
+  STATE_INTERVAL: 2,       // broadcast state every N ticks → 30 Hz (movimento più fluido)
+  INTERP_DELAY: 70,        // ms client interpolation buffer
   HEARTBEAT_INTERVAL: 5000,
   HEARTBEAT_TIMEOUT: 15000,
 
@@ -60,11 +60,11 @@ const CONFIG = {
   // ── Ships ─────────────────────────────────────────────────
   // speed=px/s maxSpeed, turn=rad/s, shield=max HP, ammo=max ammo
   SHIPS: [
-    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 320, turn: 5.5, shield: 100, ammo: 200 },
-    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 390, turn: 6.5, shield:  70, ammo: 150 },
-    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 250, turn: 4.0, shield: 150, ammo: 300 },
-    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 345, turn: 5.8, shield:  80, ammo: 250 },
-    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 355, turn: 5.2, shield:  90, ammo: 180 },
+    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 320, turn: 6.5, shield: 100, ammo: 200 },
+    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 390, turn: 7.5, shield:  70, ammo: 150 },
+    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 250, turn: 5.0, shield: 150, ammo: 300 },
+    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 345, turn: 6.8, shield:  80, ammo: 250 },
+    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 355, turn: 6.2, shield:  90, ammo: 180 },
   ],
 
   // ── Weapons ──────────────────────────────────────────────
