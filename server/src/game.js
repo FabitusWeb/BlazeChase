@@ -7,7 +7,7 @@ const { getArena } = require('./arenas');
 const { updateShip, resolveShipCollisions, createShip } = require('./physics');
 const { fireBullets, updateBullets, updateMines, explode } = require('./weapons');
 const { updatePowerups, checkPickups, createPowerup } = require('./powerups');
-const { createTurret, updateTurrets, applyBlackholes, updateWave } = require('./hazards');
+const { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes } = require('./hazards');
 const { createAIShip, updateAI } = require('./enemies');
 const { getMission } = require('./missions');
 const { TILE } = CONFIG;
@@ -91,6 +91,8 @@ class Game {
     this.hazards    = this.arena.hazards;
     this.turrets    = this.hazards.turrets.map((d, i) => createTurret(d, 'turret-' + i));
     this.blackholes = this.hazards.blackholes;
+    this.gravity    = this.hazards.gravity    || [];
+    this.wormholes  = this.hazards.wormholes  || [];
     this.waveState  = this.hazards.wave
       ? { ...this.hazards.wave, timer: 6, active: null }
       : null;
@@ -135,6 +137,8 @@ class Game {
         mines:      this.hazards.mines,
         turrets:    this.turrets.map(t => ({ id: t.id, type: t.type, x: t.x, y: t.y })),
         blackholes: this.blackholes,
+        gravity:    this.gravity,
+        wormholes:  this.wormholes,
         wave:       this.hazards.wave,
       },
     });
@@ -361,6 +365,14 @@ class Game {
     // Black holes pull and damage ships
     for (const { ship, dmg } of applyBlackholes(this.blackholes, this.ships, dt)) {
       this._damageEnvironment(ship, dmg);
+    }
+
+    // Gravity zones push ships (no damage)
+    applyGravity(this.gravity, this.ships, dt);
+
+    // Wormholes teleport ships between paired endpoints
+    for (const ev of updateWormholes(this.wormholes, this.ships, dt).events) {
+      this.events.push({ type: 'event', ...ev });
     }
 
     // Periodic energy wave

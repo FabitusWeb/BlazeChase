@@ -12,6 +12,9 @@ const { TILE, ARENA_COLS: COLS, ARENA_ROWS: ROWS } = CONFIG;
 // S  spawn point (floor)                P  powerup spot (floor)
 // M  proximity mine (floor)             B  black hole (floor)
 // T  missile turret (floor)             O  mortar turret (floor)
+// <  gravity left (floor)               >  gravity right (floor)
+// ^  gravity up (floor)                 v  gravity down (floor)
+// 1  wormhole pair 1 (floor)            2  wormhole pair 2 (floor)
 const CHAR_TILES = {
   '#': TILE.WALL_SOLID,
   'D': TILE.WALL_DEST,
@@ -21,7 +24,7 @@ const CHAR_TILES = {
   'G': TILE.GLASS,
 };
 // Feature chars: the tile stays FLOOR, the char marks a gameplay object
-const FEATURE_CHARS = new Set(['S', 'P', 'M', 'T', 'O', 'B']);
+const FEATURE_CHARS = new Set(['S', 'P', 'M', 'T', 'O', 'B', '<', '>', '^', 'v', '1', '2']);
 
 // ── Layouts ──────────────────────────────────────────────────
 // Every map is 30 rows of 40 chars. Outer border must be '#'
@@ -275,9 +278,9 @@ const LAYOUTS = [
       '#......................................#',
       '#...............#......#...............#',
       '#.................D..D.................#',
-      '#......................................#',
-      '#.R...P.....M......B...................#',
-      '#..........................M.....P...R.#',
+      '#................v.....................#',
+      '#.R...P.....M...>..B.<.................#',
+      '#................^.........M.....P...R.#',
       '#......................................#',
       '#.................D..D.................#',
       '#...............#......#...............#',
@@ -305,7 +308,7 @@ const LAYOUTS = [
       '#......................................#',
       '#.........#..................#.........#',
       '#..S......#..................#......S..#',
-      '#.........P............................#',
+      '#1........P............................#',
       '#..............M...DD...M..............#',
       '#.........#........##........#.........#',
       '#.........#........##........#.........#',
@@ -329,7 +332,7 @@ const LAYOUTS = [
       '#..............M........M..............#',
       '#..S......#..................#......S..#',
       '#.........#..................#.........#',
-      '#......................................#',
+      '#.....................................1#',
       '########################################',
     ],
   },
@@ -397,7 +400,7 @@ function parseArena(layout) {
 
   const spawnPoints  = [];
   const powerupSpots = [];
-  const hazards = { mines: [], turrets: [], blackholes: [], wave: layout.wave || null };
+  const hazards = { mines: [], turrets: [], blackholes: [], gravity: [], wormholes: [], wave: layout.wave || null };
 
   for (let r = 0; r < ROWS; r++) {
     const row = layout.map[r];
@@ -418,6 +421,11 @@ function parseArena(layout) {
         else if (ch === 'T') hazards.turrets.push({ type: 'missile', ...pos });
         else if (ch === 'O') hazards.turrets.push({ type: 'mortar', ...pos });
         else if (ch === 'B') hazards.blackholes.push(pos);
+        else if (ch === '<') hazards.gravity.push({ ...pos, dx: -1, dy: 0 });
+        else if (ch === '>') hazards.gravity.push({ ...pos, dx: 1, dy: 0 });
+        else if (ch === '^') hazards.gravity.push({ ...pos, dx: 0, dy: -1 });
+        else if (ch === 'v') hazards.gravity.push({ ...pos, dx: 0, dy: 1 });
+        else if (ch === '1' || ch === '2') hazards.wormholes.push({ id: ch, ...pos });
       } else {
         throw new Error(`Arena '${layout.id}': unknown char '${ch}' at ${r},${c}`);
       }

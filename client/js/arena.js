@@ -441,6 +441,9 @@ export class ArenaRenderer {
     // Draw animated tile overlays (acid bubbles, refuel glow)
     this._drawAnimatedTiles(ctx, camX, camY, time);
 
+    // Draw hazard overlays (gravity arrows, wormhole portals)
+    this._drawHazardOverlays(ctx, camX, camY, time);
+
     // Draw burn marks layer
     ctx.drawImage(this.burnCanvas, camX * s, camY * s, vw * s, vh * s, 0, 0, vw, vh);
 
@@ -508,6 +511,65 @@ export class ArenaRenderer {
     ctx.lineWidth = 2;
     ctx.strokeRect(sx + 1, sy + 1, TS - 2, TS - 2);
     ctx.shadowBlur = 0;
+  }
+
+  /** Animated overlays for point hazards: gravity arrows + wormhole portals */
+  _drawHazardOverlays(ctx, camX, camY, time) {
+    const hz = this.arenaData.hazards || {};
+    const vw = CONFIG.VIEWPORT_W;
+    const vh = CONFIG.VIEWPORT_H;
+
+    // ── Gravity zones: pulsing chevrons ──
+    for (const g of hz.gravity || []) {
+      const sx = g.x - camX;
+      const sy = g.y - camY;
+      if (sx < -TS || sy < -TS || sx > vw + TS || sy > vh + TS) continue;
+      const pulse = 0.45 + 0.3 * Math.sin(time * 3 + g.x * 0.05 + g.y * 0.07);
+      const ang = Math.atan2(g.dy, g.dx);
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#FFCC44';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      for (let k = 0; k < 2; k++) {
+        const off = k * 7 - 3;
+        const cxp = sx + Math.cos(ang) * off;
+        const cyp = sy + Math.sin(ang) * off;
+        ctx.beginPath();
+        ctx.moveTo(cxp + Math.cos(ang - 2.4) * 8, cyp + Math.sin(ang - 2.4) * 8);
+        ctx.lineTo(cxp, cyp);
+        ctx.lineTo(cxp + Math.cos(ang + 2.4) * 8, cyp + Math.sin(ang + 2.4) * 8);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ── Wormhole portals: rotating swirl arcs ──
+    const portalColors = { '1': '#44DDFF', '2': '#FF44DD' };
+    for (const w of hz.wormholes || []) {
+      const sx = w.x - camX;
+      const sy = w.y - camY;
+      if (sx < -TS * 2 || sy < -TS * 2 || sx > vw + TS * 2 || sy > vh + TS * 2) continue;
+      const color = portalColors[w.id] || '#AA88FF';
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      for (let i = 0; i < 3; i++) {
+        const a0 = time * (1.2 + i * 0.4) + i * 2.1;
+        ctx.globalAlpha = 0.9 - i * 0.25;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 15 - i * 4, a0, a0 + Math.PI * 1.4);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2.5, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
 

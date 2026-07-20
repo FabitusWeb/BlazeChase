@@ -118,6 +118,69 @@ function applyBlackholes(blackholes, ships, dt) {
 }
 
 /**
+ * Gravity zones (CA style): single-tile areas that push ships in a fixed
+ * direction { x, y, dx, dy } (dx/dy unit axis). Mutates ship velocities.
+ */
+function applyGravity(zones, ships, dt) {
+  const half  = CONFIG.TILE_SIZE / 2;
+  const force = CONFIG.HAZARDS.GRAVITY.FORCE;
+
+  for (const z of zones) {
+    for (const ship of Object.values(ships)) {
+      if (!ship.alive) continue;
+      if (Math.abs(ship.x - z.x) > half || Math.abs(ship.y - z.y) > half) continue;
+      ship.vx += z.dx * force * dt;
+      ship.vy += z.dy * force * dt;
+    }
+  }
+}
+
+/**
+ * Wormholes: paired teleport points { id, x, y }. A ship entering RADIUS of
+ * one end pops out at the other, with a per-ship cooldown to avoid loops.
+ * Returns { events: [{ kind:'wormhole', shipId, fromX, fromY, toX, toY }] }.
+ */
+function updateWormholes(wormholes, ships, dt) {
+  const events = [];
+  const cfg = CONFIG.HAZARDS.WORMHOLE;
+
+  // Cooldown tick (per ship)
+  for (const ship of Object.values(ships)) {
+    if (ship._wormCd > 0) ship._wormCd -= dt;
+  }
+
+  // Group endpoints by id (only complete pairs are active)
+  const byId = {};
+  for (const w of wormholes) {
+    (byId[w.id] = byId[w.id] || []).push(w);
+  }
+
+  for (const ship of Object.values(ships)) {
+    if (!ship.alive || (ship._wormCd || 0) > 0) continue;
+    for (const id in byId) {
+      const pair = byId[id];
+      if (pair.length !== 2) continue;
+      const [a, b] = pair;
+      let from = null, to = null;
+      if (Math.hypot(ship.x - a.x, ship.y - a.y) <= cfg.RADIUS)      { from = a; to = b; }
+      else if (Math.hypot(ship.x - b.x, ship.y - b.y) <= cfg.RADIUS) { from = b; to = a; }
+      if (!from) continue;
+
+      ship.x = to.x;
+      ship.y = to.y;
+      ship._wormCd = cfg.COOLDOWN;
+      events.push({
+        kind: 'wormhole', shipId: ship.id,
+        fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+      });
+      break;
+    }
+  }
+
+  return { events };
+}
+
+/**
  * Periodic energy wave sweeping the arena along one axis.
  * waveState: { axis, interval, timer, active: null | { pos, dir } }
  * Returns { damages: [{ ship, dmg }], events: [{ kind:'wave_spawn', ... }] }.
@@ -162,4 +225,4 @@ function updateWave(waveState, ships, arena, dt) {
   return { damages, events };
 }
 
-module.exports = { createTurret, updateTurrets, applyBlackholes, updateWave };
+module.exports = { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes };

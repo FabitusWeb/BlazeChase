@@ -100,6 +100,8 @@ const CONFIG = {
     TURRET_MORTAR:  { HP: 60, RANGE: 380, FIRE_RATE: 2.4, BULLET_SPEED: 260, DAMAGE: 10, AOE: { radius: 55, damage: 20 } },
     BLACKHOLE: { PULL_RADIUS: 220, PULL_FORCE: 260, DAMAGE_RADIUS: 34, DPS: 25 },
     WAVE: { INTERVAL: 18, SPEED: 140, WIDTH: 60, DAMAGE: 20, PUSH: 320 },
+    GRAVITY:  { FORCE: 260 },                 // zone a tile singola, spingono le navi
+    WORMHOLE: { RADIUS: 22, COOLDOWN: 1.0 },  // teletrasporto a coppie (char '1'/'2')
   },
 
   // ── Power-ups ─────────────────────────────────────────────
