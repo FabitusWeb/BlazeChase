@@ -128,8 +128,12 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
     ctx.closePath();
     ctx.fill();
     if (!shadowOnly) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 0.5;
+      // Contorno scuro + taglio luce (stile sprite pre-renderizzato CA)
+      ctx.strokeStyle = 'rgba(0,10,25,0.85)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 0.6;
       ctx.stroke();
     }
   }
@@ -152,8 +156,12 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
     hullGrad.addColorStop(1, accent);
     ctx.fillStyle = hullGrad;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 1;
+    // Contorno scuro + taglio luce bianco (rim light stile CA)
+    ctx.strokeStyle = 'rgba(0,10,25,0.9)';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 0.7;
     ctx.stroke();
 
     // Center panel line + nose accent

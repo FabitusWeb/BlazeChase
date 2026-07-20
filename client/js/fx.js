@@ -472,7 +472,7 @@ export class FXSystem {
     }
   }
 
-  /** Draw bullet trails for all bullets in the current state */
+  /** Draw bullets as CA-style bolts: elongated body along velocity, bright core */
   drawBullets(ctx, bullets, camX, camY) {
     for (const b of bullets) {
       const wDef  = CONFIG.WEAPONS[b.weapon] || CONFIG.WEAPONS[0];
@@ -480,36 +480,42 @@ export class FXSystem {
       const sx = b.x - camX;
       const sy = b.y - camY;
 
-      // Trail
       const speed = Math.hypot(b.vx, b.vy);
-      if (speed > 0) {
-        const trailLen = b.size * 4;
-        const nx = b.vx / speed;
-        const ny = b.vy / speed;
-        const grad = ctx.createLinearGradient(sx, sy, sx - nx * trailLen, sy - ny * trailLen);
-        grad.addColorStop(0, color + 'cc');
-        grad.addColorStop(1, color + '00');
-        ctx.strokeStyle = grad;
-        ctx.lineWidth   = b.size * 0.8;
-        ctx.lineCap     = 'round';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx - nx * trailLen, sy - ny * trailLen);
-        ctx.stroke();
-      }
+      const nx = speed > 0 ? b.vx / speed : 1;
+      const ny = speed > 0 ? b.vy / speed : 0;
 
-      // Bullet body
+      // Bolt: elongated body along the direction of travel
+      const len  = b.size * 3.2;
+      const w    = Math.max(2, b.size * 0.75);
+      const tailX = sx - nx * len;
+      const tailY = sy - ny * len;
+
       ctx.save();
+      ctx.lineCap = 'round';
+      // Outer glow edge
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = w * 1.7;
       ctx.shadowColor = color;
-      ctx.shadowBlur  = b.size * 2;
-      ctx.fillStyle   = color;
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(sx, sy, b.size * 0.8, 0, TAU);
-      ctx.fill();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+      // Bright core
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = w * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(sx - nx * len * 0.55, sy - ny * len * 0.55);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
 
       // Plasma special glow
       if (b.weapon === 5) {
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(sx, sy, b.size * 1.8, 0, TAU);
         ctx.fill();
