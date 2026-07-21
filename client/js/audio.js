@@ -113,6 +113,21 @@ export class AudioManager {
         this._osc('square', 150, 60, 0.09, 0.10);
         this._noise(0.05, 'lowpass', 500, 150, 0.06);
         break;
+      case 11: // SNEAKY MISSILE — whoosh + wobble
+        this._noise(0.25, 'lowpass', 2200, 400, 0.08);
+        this._osc('sawtooth', 200, 500, 0.22, 0.05);
+        break;
+      case 12: // CENTERBLAST — boom profondo
+        this._osc('sine', 100, 30, 0.4, 0.16);
+        this._noise(0.3, 'lowpass', 1500, 150, 0.1);
+        break;
+      case 13: // STICKY BOMB — thwip
+        this._osc('sine', 500, 150, 0.08, 0.1);
+        break;
+      case 14: // LAZER TRAP — zap + hum
+        this._osc('sawtooth', 900, 200, 0.08, 0.08);
+        this._osc('sine', 220, 220, 0.15, 0.04, 0.05);
+        break;
       default:
         this._osc('square', 700, 150, 0.06, 0.10);
     }

@@ -754,6 +754,43 @@ export class FXSystem {
       }
       ctx.restore();
     }
+
+    // ── Sticky bombs (F11a): blob verde, lampeggio accelerato a fine fuse ──
+    for (const s of state.stickies || []) {
+      const sx = s.x - camX;
+      const sy = s.y - camY;
+      const rate = s.timer < 0.5 ? 22 : 7;
+      const on = Math.sin(time * rate) > -0.2;
+      ctx.save();
+      ctx.fillStyle = on ? '#88FF88' : '#2A5A2A';
+      ctx.shadowColor = '#88FF88';
+      ctx.shadowBlur = on ? 8 : 0;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ── Lazer traps (F11a): tripwire rosse ──
+    for (const t of state.lazerTraps || []) {
+      ctx.save();
+      ctx.strokeStyle = '#FF3333';
+      ctx.shadowColor = '#FF3333';
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(t.x1 - camX, t.y1 - camY);
+      ctx.lineTo(t.x2 - camX, t.y2 - camY);
+      ctx.stroke();
+      ctx.fillStyle = '#FF5555';
+      ctx.beginPath();
+      ctx.arc(t.x1 - camX, t.y1 - camY, 3, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(t.x2 - camX, t.y2 - camY, 3, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   /** Draw floating power-ups */

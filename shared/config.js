@@ -87,6 +87,11 @@ const CONFIG = {
     { id: 8,  name: 'CHARGE ROCKET',color: '#FFDD66', fireRate: 0.45, ammoCost: 1, damage: 10, speed: 380, size: 5,  count: 1, spread: 0.12, homing: false, erratic: true, aoe: { radius: 50, damage: 20 }, pickupAmmo: 24 },
     { id: 9,  name: 'LASER CANNON', color: '#FF2222', fireRate: 0.10, ammoCost: 2, damage: 6,  speed: 0,   size: 3,  count: 1, spread: 0,    homing: false, beam: { length: 420 }, pickupAmmo: 120 },
     { id: 10, name: 'MINES',        color: '#CCCCCC', fireRate: 0.60, ammoCost: 1, damage: 0,  speed: 0,   size: 6,  count: 1, spread: 0,    homing: false, lay: 'mine', pickupAmmo: 10 },
+    // ── Arsenale CA (F11a) ─────────────────────────────────
+    { id: 11, name: 'SNEAKY MISSILE',color: '#FF44CC', fireRate: 0.55, ammoCost: 1, damage: 20, speed: 420, size: 7, count: 1, spread: 0,    homing: true, erratic: true, pickupAmmo: 18 },
+    { id: 12, name: 'CENTERBLAST',  color: '#FFFF88', fireRate: 1.20, ammoCost: 1, damage: 0,  speed: 0,   size: 0,  count: 1, spread: 0,    homing: false, selfBlast: { radius: 150, damage: 40 }, pickupAmmo: 6 },
+    { id: 13, name: 'STICKY BOMB',  color: '#88FF88', fireRate: 0.70, ammoCost: 1, damage: 5,  speed: 380, size: 6,  count: 1, spread: 0,    homing: false, sticky: { fuse: 1.5, aoe: { radius: 80, damage: 45 } }, pickupAmmo: 10 },
+    { id: 14, name: 'LAZER TRAP',   color: '#FF3333', fireRate: 0.80, ammoCost: 1, damage: 0,  speed: 0,   size: 0,  count: 1, spread: 0,    homing: false, lay: 'lazertrap', pickupAmmo: 8 },
   ],
 
   // ── Mines (laid by weapon 10) ─────────────────────────────
@@ -96,6 +101,15 @@ const CONFIG = {
     AOE_DAMAGE:     35,
     ARM_TIME:       0.8,  // seconds before the mine becomes live
     MAX_PER_SHIP:   5,    // oldest mine is dropped beyond this
+  },
+
+  // ── Lazer trap (laid by weapon 14) ────────────────────────
+  LAZERTRAP: {
+    DPS:          14,    // damage/s to ships crossing the beam (not the owner)
+    LIFETIME:     15,    // seconds (come da bibbia CA)
+    MAX_PER_SHIP: 3,
+    WIDTH:        8,     // half-width of the beam collision
+    LENGTH:       480,   // max beam length (stops at first wall)
   },
 
   // ── Environmental hazards (arena-placed) ──────────────────

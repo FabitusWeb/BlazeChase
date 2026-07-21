@@ -11,14 +11,14 @@ import { isSolidAt, getTileAt } from './physics.js';
 let bulletIdCounter = 1;
 let mineIdCounter   = 1;
 
-const EMPTY_RESULT = () => ({ bullets: [], beams: [], mines: [] });
+const EMPTY_RESULT = () => ({ bullets: [], beams: [], mines: [], traps: [], blasts: [] });
 
 /**
  * Attempt to fire for a ship.
  * @param {object} ship  — mutable ship state (uses ship.weapons inventory)
  * @param {object} input — { fire, ... }
  * @param {object} ctx   — { ships, arena } (needed for beam hitscan)
- * @returns {{ bullets: Array, beams: Array, mines: Array }}
+ * @returns {{ bullets: Array, beams: Array, mines: Array, traps: Array, blasts: Array }}
  */
 function fireBullets(ship, input, ctx = {}) {
   if (!ship.alive || !input.fire) return EMPTY_RESULT();
@@ -46,7 +46,7 @@ function fireBullets(ship, input, ctx = {}) {
 
   // ── Beam weapon (LASER CANNON) — hitscan, no projectile ──
   if (wDef.beam) {
-    return { bullets: [], beams: [fireBeam(ship, wDef, ctx)], mines: [] };
+    return { ...EMPTY_RESULT(), beams: [fireBeam(ship, wDef, ctx)] };
   }
 
   // ── Mine layer (MINES) — no projectile ───────────────────
@@ -58,7 +58,18 @@ function fireBullets(ship, input, ctx = {}) {
       ownerId:  ship.id,
       armTimer: CONFIG.MINE.ARM_TIME,
     };
-    return { bullets: [], beams: [], mines: [mine] };
+    return { ...EMPTY_RESULT(), mines: [mine] };
+  }
+
+  // ── Lazer trap layer (CA LAZER TRAP) — beam to first wall ──
+  if (wDef.lay === 'lazertrap') {
+    const trap = layLazerTrap(ship, ctx);
+    return { ...EMPTY_RESULT(), traps: [trap] };
+  }
+
+  // ── CENTERBLAST — AoE istantaneo centrato sulla nave ─────
+  if (wDef.selfBlast) {
+    return { ...EMPTY_RESULT(), blasts: [{ x: ship.x, y: ship.y, radius: wDef.selfBlast.radius, damage: wDef.selfBlast.damage, ownerId: ship.id }] };
   }
 
   // ── Projectile weapons ───────────────────────────────────
@@ -89,11 +100,35 @@ function fireBullets(ship, input, ctx = {}) {
       homing,
       erratic:  !!wDef.erratic,
       aoe:      wDef.aoe ? { radius: wDef.aoe.radius, damage: wDef.aoe.damage } : null,
+      sticky:   wDef.sticky || null,
       lifetime: CONFIG.BULLET_LIFETIME,
     });
   }
 
-  return { bullets, beams: [], mines: [] };
+  return { ...EMPTY_RESULT(), bullets };
+}
+
+/**
+ * Lay a lazer trap: march from the ship nose along ship.angle (4px steps)
+ * up to LAZERTRAP.LENGTH, stop at the first solid tile → beam segment.
+ */
+function layLazerTrap(ship, ctx) {
+  const cfg   = CONFIG.LAZERTRAP;
+  const arena = ctx.arena;
+  const dx = Math.cos(ship.angle);
+  const dy = Math.sin(ship.angle);
+  const x1 = ship.x + dx * 20;
+  const y1 = ship.y + dy * 20;
+  let x2 = x1 + dx * cfg.LENGTH;
+  let y2 = y1 + dy * cfg.LENGTH;
+  if (arena) {
+    for (let d = 4; d <= cfg.LENGTH; d += 4) {
+      const px = x1 + dx * d;
+      const py = y1 + dy * d;
+      if (isSolidAt(arena.tiles, px, py)) { x2 = px; y2 = py; break; }
+    }
+  }
+  return { x1, y1, x2, y2, ownerId: ship.id, timer: cfg.LIFETIME };
 }
 
 /**

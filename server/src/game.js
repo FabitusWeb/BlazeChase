@@ -87,6 +87,8 @@ class Game {
     this.bullets    = [];
     this.mines      = [];
     this.powerups   = [];
+    this.stickies   = [];   // sticky bombs attaccate (F11a)
+    this.lazerTraps = [];   // tripwire laser (F11a)
 
     // ── Environmental hazards (from arena generation) ──────
     this.hazards    = this.arena.hazards;
@@ -340,11 +342,13 @@ class Game {
     for (const [id, ship] of Object.entries(this.ships)) {
       if (ship.isAI) continue;
       const input = this.inputBuffer[id] || {};
-      const { bullets, beams, mines } = fireBullets(ship, input, { ships: this.ships, arena: this.arena });
-      ship.shotsFired += bullets.length + beams.length + mines.length;
+      const { bullets, beams, mines, traps, blasts } = fireBullets(ship, input, { ships: this.ships, arena: this.arena });
+      ship.shotsFired += bullets.length + beams.length + mines.length + traps.length + blasts.length;
       this.bullets.push(...bullets);
       this._addMines(mines);
       this._handleBeams(beams);
+      for (const t of traps) this._addLazerTrap(t);
+      for (const b of blasts) this._explodeAt(b.x, b.y, b.radius, b.damage, b.ownerId);
     }
 
     // ── Update bullets ────────────────────────────────────
@@ -366,6 +370,37 @@ class Game {
     for (const ev of mineEvents) {
       if (ev.kind === 'mine_explode') {
         this._explodeAt(ev.x, ev.y, CONFIG.MINE.AOE_RADIUS, CONFIG.MINE.AOE_DAMAGE, ev.mine.ownerId);
+      }
+    }
+
+    // ── Sticky bombs: fuse e detonazione (F11a) ───────────
+    for (const s of this.stickies) s.timer -= dt;
+    const detonating = this.stickies.filter(s => s.timer <= 0);
+    this.stickies = this.stickies.filter(s => s.timer > 0);
+    for (const s of detonating) {
+      let ex = s.x, ey = s.y;
+      if (s.targetId && this.ships[s.targetId]) {
+        ex = this.ships[s.targetId].x;
+        ey = this.ships[s.targetId].y;
+      }
+      if (ex !== undefined) this._explodeAt(ex, ey, s.aoe.radius, s.aoe.damage, s.ownerId);
+    }
+
+    // ── Lazer traps: danno a chi incrocia il raggio (F11a) ──
+    const ltCfg = CONFIG.LAZERTRAP;
+    this.lazerTraps = this.lazerTraps.filter(t => (t.timer -= dt) > 0);
+    for (const t of this.lazerTraps) {
+      for (const ship of Object.values(this.ships)) {
+        if (!ship.alive || ship.id === t.ownerId) continue;
+        const d = _distToSegment(ship.x, ship.y, t.x1, t.y1, t.x2, t.y2);
+        if (d <= ltCfg.WIDTH + CONFIG.SHIP_RADIUS * 0.5) {
+          this._applyDamage(ship, ltCfg.DPS * dt);
+          ship.hitFlashTimer = 0.15;
+          if (ship.shield <= 0) {
+            ship.shield = 0;
+            this._killShip(ship, t.ownerId, 14);
+          }
+        }
       }
     }
 
@@ -432,6 +467,15 @@ class Game {
 
   _processBulletEvent(ev) {
     if (ev.kind === 'wall_hit') {
+      // STICKY BOMB: si attacca al muro invece di danneggiarlo (F11a)
+      if (ev.bullet.sticky) {
+        this.stickies.push({
+          x: ev.bullet.x, y: ev.bullet.y,
+          timer: ev.bullet.sticky.fuse, aoe: ev.bullet.sticky.aoe,
+          ownerId: ev.bullet.ownerId,
+        });
+        return;
+      }
       // Damage destructible walls
       if (ev.tileType === TILE.WALL_DEST) {
         const hp = this.arena.wallHP[ev.ty][ev.tx];
@@ -477,6 +521,21 @@ class Game {
 
     if (ev.kind === 'bullet_hit') {
       const ship = ev.ship;
+
+      // STICKY BOMB: si attacca alla nave invece di danneggiarla subito (F11a)
+      if (ev.bullet.sticky) {
+        this.stickies.push({
+          targetId: ship.id,
+          timer: ev.bullet.sticky.fuse, aoe: ev.bullet.sticky.aoe,
+          ownerId: ev.bullet.ownerId,
+        });
+        this.events.push({
+          type: 'event', kind: 'explosion',
+          x: ev.bullet.x, y: ev.bullet.y, size: 'small',
+        });
+        return;
+      }
+
       this._applyDamage(ship, ev.bullet.damage);
       ship.hitFlashTimer = 0.15;
 
@@ -623,6 +682,19 @@ class Game {
         this.mines.splice(this.mines.indexOf(owned[0]), 1);
       }
     }
+  }
+
+  /** Push a lazer trap, enforcing LAZERTRAP.MAX_PER_SHIP (F11a). */
+  _addLazerTrap(trap) {
+    this.lazerTraps.push(trap);
+    const owned = this.lazerTraps.filter(t => t.ownerId === trap.ownerId);
+    if (owned.length > CONFIG.LAZERTRAP.MAX_PER_SHIP) {
+      this.lazerTraps.splice(this.lazerTraps.indexOf(owned[0]), 1);
+    }
+    this.events.push({
+      type: 'event', kind: 'explosion',
+      x: trap.x1, y: trap.y1, size: 'small',
+    });
   }
 
   /**
@@ -897,6 +969,14 @@ class Game {
     }));
     const pistons = this.pistons.map(p => ({ x: p.x, y: p.y, phase: p.phase }));
 
+    // F11a: sticky bombs (posizione risolta) + lazer traps attive
+    const stickies = this.stickies.map(s => ({
+      x: s.targetId && this.ships[s.targetId] ? this.ships[s.targetId].x : s.x,
+      y: s.targetId && this.ships[s.targetId] ? this.ships[s.targetId].y : s.y,
+      timer: s.timer,
+    }));
+    const lazerTraps = this.lazerTraps.map(t => ({ x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2 }));
+
     this.broadcast({
       type:    'state',
       tick:    this.tickCount,
@@ -909,8 +989,19 @@ class Game {
       wave,
       doors,
       pistons,
+      stickies,
+      lazerTraps,
     });
   }
+}
+
+/** Distance from point (px,py) to segment (x1,y1)-(x2,y2). */
+function _distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 > 0 ? ((px - x1) * dx + (py - y1) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
 module.exports = Game;
