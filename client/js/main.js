@@ -805,8 +805,10 @@ function resizeCanvas(canvas) {
   const vw = CONFIG.VIEWPORT_W;
   const vh = CONFIG.VIEWPORT_H;
   const scale = Math.min(window.innerWidth / vw, window.innerHeight / vh);
-  // HiDPI: render interno fino a 2× la risoluzione logica (niente più blur/pixel)
-  const resScale = Math.min(Math.max(scale, 1), 2);
+  // HiDPI adattivo: parte dalla qualità salvata (impara dal PC dell'utente),
+  // altrimenti 2×; il gameLoop degrada se fps < 50 e salva la scelta
+  const saved = parseFloat(localStorage.getItem('blazechase_rescale') || '2');
+  const resScale = Math.min(Math.max(Math.min(saved, scale), 1), 2);
   canvas.width  = Math.floor(vw * resScale);
   canvas.height = Math.floor(vh * resScale);
   canvas.style.width  = Math.floor(vw * scale) + 'px';
@@ -848,17 +850,19 @@ function gameLoop(now) {
 
       renderer.frame(dt, gameState, myId, killFeed, activePowerups);
 
-      // Adaptive quality: fps < 45 per ~2s → scala risoluzione 2 → 1.5 → 1
+      // Adaptive quality: fps < 50 per ~2s → scala risoluzione 2 → 1.5 → 1
+      // e la salva: la prossima partita riparte dalla qualità giusta per questo PC
       _fpsFrames++;
       _fpsTime += dt;
       if (_fpsTime >= 2) {
         const fps = _fpsFrames / _fpsTime;
         _fpsFrames = 0;
         _fpsTime = 0;
-        if (fps < 45 && renderer.resScale > 1) {
+        if (fps < 50 && renderer.resScale > 1) {
           const next = renderer.resScale > 1.5 ? 1.5 : 1;
           console.log(`[BLAZE] fps ${fps.toFixed(0)} → resScale ${next}`);
           renderer.setResScale(next);
+          localStorage.setItem('blazechase_rescale', String(next));
           const canvas = document.getElementById('game-canvas');
           canvas.width  = Math.floor(CONFIG.VIEWPORT_W * next);
           canvas.height = Math.floor(CONFIG.VIEWPORT_H * next);
