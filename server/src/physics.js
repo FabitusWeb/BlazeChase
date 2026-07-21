@@ -48,7 +48,9 @@ function updateShip(ship, input, dt, arena) {
   ship.dodging = ship.dodgeTimer > 0;
   ship.invulnerable = ship.invulnTimer > 0;
 
-  const speedMult = (ship.speedBoostTimer > 0 ? 1.4 : 1.0) * (ship.dashing ? CONFIG.TURBO_FACTOR : 1.0);
+  // Turbo per nave (F11 — ogni nave ha il suo TURBOFACTOR come in CA)
+  const turboFactor = def.turbo || CONFIG.TURBO_FACTOR;
+  const speedMult = (ship.speedBoostTimer > 0 ? 1.4 : 1.0) * (ship.dashing ? turboFactor : 1.0);
   const maxSpeed  = def.speed * speedMult;
 
   // ── Dodge initiation ────────────────────────────────────
@@ -69,7 +71,7 @@ function updateShip(ship, input, dt, arena) {
   ship.angle = ((ship.angle % TAU) + TAU) % TAU;
 
   // ── Thrust ──────────────────────────────────────────────
-  let accel = CONFIG.SHIP_ACCEL;
+  let accel = def.accel || CONFIG.SHIP_ACCEL;   // accelerazione per nave (F11)
   if (ship.onAcid) accel *= CONFIG.ACID_SLOW;
   if (ship.dashing) accel *= CONFIG.TURBO_ACCEL;
 

@@ -63,12 +63,14 @@ const CONFIG = {
 
   // ── Ships ─────────────────────────────────────────────────
   // speed=px/s maxSpeed, turn=rad/s, shield=max HP, ammo=max ammo
+  // accel/turbo per nave (F11 — dai valori CA decodificati: ogni nave CA
+  // ha ACCELERATION e TURBOFACTOR propri, es. Martinez turbo 250/100=2.5×)
   SHIPS: [
-    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 320, turn: 6.5, shield: 100, ammo: 200 },
-    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 390, turn: 7.5, shield:  70, ammo: 150 },
-    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 250, turn: 5.0, shield: 150, ammo: 300 },
-    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 345, turn: 6.8, shield:  80, ammo: 250 },
-    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 355, turn: 6.2, shield:  90, ammo: 180 },
+    { id: 0, name: 'VIPER',   color: '#00DDFF', accent: '#0088AA', speed: 320, turn: 6.5, shield: 100, ammo: 200, accel: 900,  turbo: 1.3 },
+    { id: 1, name: 'HORNET',  color: '#FFCC00', accent: '#AA8800', speed: 390, turn: 7.5, shield:  80, ammo: 150, accel: 1400, turbo: 1.9 },
+    { id: 2, name: 'TITAN',   color: '#FF4444', accent: '#AA1111', speed: 250, turn: 5.0, shield: 200, ammo: 300, accel: 550,  turbo: 1.2 },
+    { id: 3, name: 'PHANTOM', color: '#AA44FF', accent: '#6611AA', speed: 345, turn: 6.8, shield: 110, ammo: 250, accel: 1000, turbo: 1.4 },
+    { id: 4, name: 'BLAZE',   color: '#FF6600', accent: '#AA3300', speed: 355, turn: 6.2, shield: 120, ammo: 180, accel: 850,  turbo: 2.0 },
   ],
 
   // ── Weapons ──────────────────────────────────────────────

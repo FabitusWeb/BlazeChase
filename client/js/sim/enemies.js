@@ -251,8 +251,9 @@ function _applyAIPhysics(ai, input, arena, dt, def, diff) {
   const maxSpeed = def.speed * diff.speedMult;
 
   if (input.up) {
-    ai.vx += Math.cos(ai.angle) * CONFIG.SHIP_ACCEL * dt;
-    ai.vy += Math.sin(ai.angle) * CONFIG.SHIP_ACCEL * dt;
+    const accel = def.accel || CONFIG.SHIP_ACCEL;   // accel per nave (F11)
+    ai.vx += Math.cos(ai.angle) * accel * dt;
+    ai.vy += Math.sin(ai.angle) * accel * dt;
   }
 
   // Friction
