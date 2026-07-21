@@ -138,7 +138,8 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
     }
   }
 
-  // Main body — metallic gradient nose → tail (Chase Ace hull shading)
+  // Main body — look "pre-renderizzato" CA: luce radiale da prua,
+  // pancia in ombra, speculare, linee pannelli, contorno netto
   ctx.beginPath();
   const pts = shape.body;
   ctx.moveTo(pts[0][0], pts[0][1]);
@@ -150,26 +151,46 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
   } else {
     const minY = Math.min(...pts.map(p => p[1]));
     const maxY = Math.max(...pts.map(p => p[1]));
-    const hullGrad = ctx.createLinearGradient(0, minY, 0, maxY);
+    const midY = (minY + maxY) / 2;
+
+    // Volume: luce radiale alta-sinistra (come gli sprite CA)
+    const hullGrad = ctx.createRadialGradient(-2, minY + 3, 1, 0, midY, maxY * 1.2);
     hullGrad.addColorStop(0, '#ffffff');
-    hullGrad.addColorStop(0.25, color);
+    hullGrad.addColorStop(0.3, color);
     hullGrad.addColorStop(1, accent);
     ctx.fillStyle = hullGrad;
     ctx.fill();
-    // Contorno scuro + taglio luce bianco (rim light stile CA)
+
+    // Pancia in ombra (metà inferiore)
+    const bellyGrad = ctx.createLinearGradient(0, midY, 0, maxY);
+    bellyGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    bellyGrad.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = bellyGrad;
+    ctx.fill();
+
+    // Linee pannelli orizzontali (2, sottili)
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth = 0.7;
+    for (const fy of [0.4, 0.65]) {
+      const py = minY + (maxY - minY) * fy;
+      ctx.beginPath();
+      ctx.moveTo(-6, py);
+      ctx.lineTo(6, py);
+      ctx.stroke();
+    }
+
+    // Speculare a prua
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.beginPath();
+    ctx.ellipse(-1.5, minY + 4, 1.6, 3, -0.3, 0, TAU);
+    ctx.fill();
+
+    // Contorno scuro + rim light (staccato dallo sfondo)
     ctx.strokeStyle = 'rgba(0,10,25,0.9)';
     ctx.lineWidth = 1.8;
     ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 0.7;
-    ctx.stroke();
-
-    // Center panel line + nose accent
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(0, minY + 3);
-    ctx.lineTo(0, maxY - 4);
     ctx.stroke();
   }
 
@@ -212,14 +233,29 @@ function _drawShipBody(ctx, shape, color, accent, drawDetails, shadowOnly, shipD
 
 function _drawEngine(ctx, eng, color, alpha, scale, t) {
   if (!eng) return;
-  const flameLen = (10 + 6 * Math.sin(t * 25)) * scale;
-  const grad = ctx.createRadialGradient(eng.x, eng.y, 0, eng.x, eng.y + flameLen / 2, flameLen);
-  grad.addColorStop(0, `rgba(255,255,200,${alpha})`);
-  grad.addColorStop(0.3, `rgba(255,160,60,${alpha * 0.8})`);
-  grad.addColorStop(1, 'rgba(255,80,0,0)');
+
+  // Nacella: anello scuro metallico
+  ctx.fillStyle = '#1A1C24';
+  ctx.beginPath();
+  ctx.ellipse(eng.x, eng.y, eng.rx + 1.5, eng.ry + 1, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+
+  // Fiamma a cono (animata), stile CA: core bianco → giallo → arancio
+  const flameLen = (12 + 7 * Math.sin(t * 28)) * scale;
+  const w = eng.rx * (0.8 + 0.2 * Math.sin(t * 35));
+  const grad = ctx.createLinearGradient(eng.x, eng.y, eng.x, eng.y + flameLen);
+  grad.addColorStop(0, `rgba(255,255,230,${alpha})`);
+  grad.addColorStop(0.35, `rgba(255,200,80,${alpha * 0.85})`);
+  grad.addColorStop(1, 'rgba(255,90,0,0)');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.ellipse(eng.x, eng.y + flameLen / 3, eng.rx * scale, flameLen / 2, 0, 0, TAU);
+  ctx.moveTo(eng.x - w, eng.y);
+  ctx.quadraticCurveTo(eng.x - w * 0.4, eng.y + flameLen * 0.55, eng.x, eng.y + flameLen);
+  ctx.quadraticCurveTo(eng.x + w * 0.4, eng.y + flameLen * 0.55, eng.x + w, eng.y);
+  ctx.closePath();
   ctx.fill();
 }
 
