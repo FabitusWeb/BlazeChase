@@ -116,6 +116,21 @@ function removeClientFromRoom(ws) {
   const room = rooms.get(client.roomCode);
   if (!room) return;
 
+  // ── F5c: partita in corso → finestra di rejoin invece di uccidere il game ──
+  if (room.state === 'playing' && room.game) {
+    room.players.delete(client.id);
+    client.roomCode = null;
+    room._disconnected = room._disconnected || new Map();
+    const key = client.name.toLowerCase();
+    // Un eventuale vecchio slot con lo stesso nome viene rimpiazzato
+    const old = room._disconnected.get(key);
+    if (old) clearTimeout(old.timer);
+    const timer = setTimeout(() => _finalizeDrop(room, key), 15000);
+    room._disconnected.set(key, { id: client.id, name: client.name, ship: client.ship, timer });
+    broadcastRoom(room, { type: 'player_left', name: client.name });
+    return;
+  }
+
   room.players.delete(client.id);
 
   if (room.players.size === 0) {
@@ -150,6 +165,31 @@ function removeClientFromRoom(ws) {
     }
   }
 
+  broadcastRoom(room, lobbySnapshot(room));
+}
+
+/**
+ * F5c: scaduta la finestra di rejoin (15s), il giocatore è considerato uscito
+ * davvero: room vuota → chiusura; altrimenti il game finisce e gli altri
+ * tornano in lobby (comportamento precedente).
+ */
+function _finalizeDrop(room, key) {
+  const slot = room._disconnected?.get(key);
+  if (!slot) return;   // nel frattempo è rientrato
+  room._disconnected.delete(key);
+
+  if (room.players.size === 0) {
+    if (room.game) room.game.stop();
+    rooms.delete(room.code);
+    return;
+  }
+  if (room.game) room.game.stop();
+  room.state = 'lobby';
+  room.game  = null;
+  for (const [, rws] of room.players) {
+    const rc = clients.get(rws);
+    if (rc) rc.ready = false;
+  }
   broadcastRoom(room, lobbySnapshot(room));
 }
 
@@ -230,7 +270,28 @@ function handleJoin(ws, client, msg) {
     // Join existing room
     room = rooms.get(code);
     if (!room) { send(ws, { type: 'error', msg: 'Room not found' }); return; }
-    if (room.state !== 'lobby') { send(ws, { type: 'error', msg: 'Game in progress' }); return; }
+    if (room.state !== 'lobby') {
+      // ── F5c: partita in corso → rejoin se c'è uno slot disconnesso col mio nome ──
+      const key  = name.toLowerCase();
+      const slot = room._disconnected?.get(key);
+      if (room.state === 'playing' && room.game && slot) {
+        clearTimeout(slot.timer);
+        room._disconnected.delete(key);
+        // Riattraverso lo stesso player id: nave, input e punteggi restano i suoi
+        client.id   = slot.id;
+        client.name = slot.name;
+        client.ship = slot.ship;
+        if (client.roomCode) removeClientFromRoom(ws);
+        room.players.set(slot.id, ws);
+        client.roomCode = room.code;
+        send(ws, { type: 'rejoin_ok', id: slot.id, code: room.code });
+        room.game.sendArena((m) => send(ws, m));
+        broadcastRoom(room, { type: 'player_rejoined', name: slot.name }, slot.id);
+        return;
+      }
+      send(ws, { type: 'error', msg: 'Game in progress' });
+      return;
+    }
     if (room.players.size >= 4) { send(ws, { type: 'error', msg: 'Room full' }); return; }
   } else {
     // Create new room

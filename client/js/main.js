@@ -97,6 +97,29 @@ window.addEventListener('DOMContentLoaded', () => {
     updateLobbyUI(msg);
   });
 
+  // F5c: rientro in una partita in corso — stesso id, aspetto l'arena e riparto
+  net.on('rejoin_ok', (msg) => {
+    myId = msg.id;
+    net.myId = myId;
+    soloMode = false;
+    arenaData = null;
+    killFeed = [];
+    activePowerups = [];
+    _pendingStart = true;
+    setState(STATES.COUNTDOWN);
+    document.getElementById('countdown-num').textContent = '...';
+  });
+
+  net.on('player_left', (msg) => {
+    killFeed.unshift({ text: `${msg.name} si è disconnesso…`, color: '#888888', timer: 4 });
+    if (killFeed.length > 3) killFeed.length = 3;
+  });
+
+  net.on('player_rejoined', (msg) => {
+    killFeed.unshift({ text: `${msg.name} è rientrato!`, color: '#44FF44', timer: 4 });
+    if (killFeed.length > 3) killFeed.length = 3;
+  });
+
   net.on('lobby_reset', () => {
     setState(STATES.LOBBY);
     if (currentRoom) updateLobbyUI(currentRoom);

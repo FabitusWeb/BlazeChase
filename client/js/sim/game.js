@@ -132,18 +132,15 @@ class Game {
     this._endTimeout  = null;
   }
 
-  start() {
-    this.running  = true;
-    this._lastTime = nowMs();
-
-    // Send arena to all clients
-    this.broadcast({
+  _arenaMessage() {
+    return {
       type:         'arena',
       tiles:        this.arena.tiles,
       wallHP:       this.arena.wallHP,
       theme:        this.arena.theme,
       spawnPoints:  this.arena.spawnPoints,
       powerupSpots: this.arena.powerupSpots,
+      oneWayDir:    this.arena.oneWayDir || null,
       hazards: {
         mines:      this.hazards.mines,
         turrets:    this.turrets.map(t => ({ id: t.id, type: t.type, x: t.x, y: t.y })),
@@ -156,7 +153,20 @@ class Game {
         oneWays:    this.hazards.oneWays || [],
         pistons:    this.pistons.map(p => ({ x: p.ox, y: p.oy, axis: p.axis })),
       },
-    });
+    };
+  }
+
+  /** Send the arena message to a single target (F5c: rejoin mid-game). */
+  sendArena(targetFn) {
+    targetFn(this._arenaMessage());
+  }
+
+  start() {
+    this.running  = true;
+    this._lastTime = nowMs();
+
+    // Send arena to all clients
+    this.broadcast(this._arenaMessage());
 
     this._intervalId = setInterval(() => this._tick(), TICK_MS);
   }
