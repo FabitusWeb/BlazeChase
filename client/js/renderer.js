@@ -90,6 +90,7 @@ export class Renderer {
       if (!this._bulletIds.has(b.id)) {
         const wDef = CONFIG.WEAPONS[b.weapon] || CONFIG.WEAPONS[0];
         this.fx.spawnMuzzle(b.x, b.y, Math.atan2(b.vy, b.vx), wDef.color);
+        this.onNewBullet?.(b);   // audio: sparo distinto per arma
       }
       if (SMOKE_WEAPONS.has(b.weapon)) {
         this.fx.spawnSmokeTrail(b.x, b.y);

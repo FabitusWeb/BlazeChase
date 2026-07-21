@@ -793,6 +793,7 @@ function startGame() {
   window.addEventListener('resize', () => resizeCanvas(canvas));
 
   renderer = new Renderer(canvas, arenaData, resScale);
+  renderer.onNewBullet = (b) => audio.weaponFire(b.weapon);   // F9: sparo per tipo arma
   input.start();
   audio.init();
 
@@ -821,6 +822,9 @@ function gameLoop(now) {
     // Get keys
     const keys = input.get();
     input.flush();
+
+    // Engine hum: spinta/turbo continuo (F9)
+    audio.engineSet(keys.up, keys.dash);
 
     if (offlineGame) {
       // Offline: feed the local simulation directly (state arrives via
@@ -878,6 +882,7 @@ function gameLoop(now) {
 function stopGameLoop() {
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   input.stop();
+  audio.engineSet(false, false);   // spegni l'engine hum
 }
 
 // ── Game events ───────────────────────────────────────────────
@@ -920,7 +925,7 @@ function handleGameEvent(msg) {
     case 'wave_start':
       killFeed.unshift({ text: `⚑ WAVE ${msg.wave}`, color: '#FFD700', timer: 4 });
       if (killFeed.length > 3) killFeed.length = 3;
-      audio.powerupPickup();
+      audio.alarm();
       break;
 
     case 'wormhole':
@@ -928,7 +933,7 @@ function handleGameEvent(msg) {
         renderer.fx.spawnExplosion(msg.fromX, msg.fromY, 'small', '#44DDFF');
         renderer.fx.spawnExplosion(msg.toX, msg.toY, 'small', '#44DDFF');
       }
-      audio.powerupPickup();
+      audio.wormholeSwoosh();
       break;
   }
 }

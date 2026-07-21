@@ -28,6 +28,8 @@ const CONFIG = {
     REFUEL:      4,
     GLASS:       5,
     DEBRIS:      6,
+    DOOR:        7,   // CA doors: solid while closed, floor once fully open
+    ONEWAY:      8,   // CA one-way walls: solid except along the allowed direction
   },
   WALL_DEST_HP: 30,
   GLASS_HP:     15,
@@ -104,6 +106,8 @@ const CONFIG = {
     WAVE: { INTERVAL: 18, SPEED: 140, WIDTH: 60, DAMAGE: 20, PUSH: 320 },
     GRAVITY:  { FORCE: 260 },                 // zone a tile singola, spingono le navi
     WORMHOLE: { RADIUS: 22, COOLDOWN: 1.0 },  // teletrasporto a coppie (char '1'/'2')
+    DOOR:    { OPEN_TIME: 0.5 },              // secondi per aprire/chiudere (animazione)
+    PISTON:  { SPEED: 60, RANGE: 2, PAUSE: 0.6, CRUSH_DPS: 120 },  // RANGE in tile (±)
   },
 
   // ── Power-ups ─────────────────────────────────────────────

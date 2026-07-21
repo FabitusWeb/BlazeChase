@@ -276,7 +276,8 @@ function mulberry32(seed) {
  * Check if a tile is solid (blocks movement).
  */
 function isSolid(tile) {
-  return tile === TILE.WALL_SOLID || tile === TILE.WALL_DEST || tile === TILE.GLASS;
+  return tile === TILE.WALL_SOLID || tile === TILE.WALL_DEST || tile === TILE.GLASS ||
+         tile === TILE.DOOR || tile === TILE.ONEWAY;
 }
 
 /**
