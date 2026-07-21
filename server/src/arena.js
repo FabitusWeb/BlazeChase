@@ -131,7 +131,9 @@ function generateArena() {
 
   const hazards = generateHazards(tiles, spawnPoints, powerupSpots, rng);
 
-  return { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards };
+  // Procedural arenas have no doors / one-way walls (F7b grids → null)
+  return { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards,
+           doorGroup: null, oneWayDir: null };
 }
 
 /**

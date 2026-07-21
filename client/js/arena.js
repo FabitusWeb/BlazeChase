@@ -79,6 +79,13 @@ export class ArenaRenderer {
       case T.DEBRIS:
         this._drawDebris(ctx, x, y, c, r);
         break;
+      case T.DOOR:
+        // Base floor: the sliding metal slab is drawn per-frame (fx)
+        this._drawFloor(ctx, x, y, c, r);
+        break;
+      case T.ONEWAY:
+        this._drawOneWayBase(ctx, x, y);
+        break;
     }
   }
 
@@ -208,7 +215,7 @@ export class ArenaRenderer {
   _isOpen(c, r) {
     if (r < 0 || r >= CONFIG.ARENA_ROWS || c < 0 || c >= CONFIG.ARENA_COLS) return false;
     const t = this.tiles[r][c];
-    return t === T.FLOOR || t === T.ACID || t === T.REFUEL || t === T.DEBRIS || t === T.WALL_DEST;
+    return t === T.FLOOR || t === T.ACID || t === T.REFUEL || t === T.DEBRIS || t === T.WALL_DEST || t === T.DOOR;
   }
 
   /** Yellow/black diagonal hazard strip. */
@@ -359,6 +366,20 @@ export class ArenaRenderer {
     ctx.moveTo(x + 4, y + 4);
     ctx.lineTo(x + TS - 10, y + 10);
     ctx.stroke();
+  }
+
+  // ── One-way wall: dark plate (chevron drawn animated per-frame) ──
+  _drawOneWayBase(ctx, x, y) {
+    ctx.fillStyle = '#181c26';
+    ctx.fillRect(x, y, TS, TS);
+    const grad = ctx.createLinearGradient(x, y, x + TS, y + TS);
+    grad.addColorStop(0, 'rgba(255,255,255,0.12)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, TS, TS);
+    ctx.strokeStyle = 'rgba(120,200,255,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 1.5, y + 1.5, TS - 3, TS - 3);
   }
 
   _drawDebris(ctx, x, y, c, r) {

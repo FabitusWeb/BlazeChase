@@ -935,6 +935,15 @@ function handleGameEvent(msg) {
       }
       audio.wormholeSwoosh();
       break;
+
+    case 'door':
+      audio.doorClank();
+      break;
+
+    case 'button_hit':
+      if (renderer) renderer.fx.spawnMuzzle(msg.x, msg.y, 0, '#FF4444');
+      audio.buttonHit();
+      break;
   }
 }
 

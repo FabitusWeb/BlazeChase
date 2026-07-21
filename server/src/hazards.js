@@ -3,6 +3,8 @@
 'use strict';
 
 const CONFIG = require('./config');
+const { isSolidAt } = require('./physics');
+const { TILE } = CONFIG;
 
 const TURRET_CFG = {
   missile: CONFIG.HAZARDS.TURRET_MISSILE,
@@ -225,4 +227,136 @@ function updateWave(waveState, ships, arena, dt) {
   return { damages, events };
 }
 
-module.exports = { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes };
+/**
+ * Doors (CA style): groups of TILE.DOOR tiles linked to shootable trigger
+ * buttons. doorState: { [group]: { open, frac } } — frac animates 0→1
+ * (closed→open) over CONFIG.HAZARDS.DOOR.OPEN_TIME. Toggle model: every
+ * button hit flips the group (more fun than one-shot permanent doors).
+ *
+ * Collision model (least invasive): the game mutates arena.tiles — a door
+ * tile is TILE.DOOR (solid via isSolid) until fully open, when it becomes
+ * TILE.FLOOR; it turns back into TILE.DOOR the moment the group starts
+ * closing. physics/weapons need no door-specific code.
+ */
+function createDoorState(doorTiles) {
+  const state = {};
+  for (const d of doorTiles) {
+    if (!state[d.group]) state[d.group] = { open: false, frac: 0 };
+  }
+  return state;
+}
+
+/** Flip a door group; returns the new `open` flag (null if unknown group). */
+function toggleDoorGroup(doorState, group) {
+  const d = doorState[group];
+  if (!d) return null;
+  d.open = !d.open;
+  return d.open;
+}
+
+/**
+ * Advance door animations one tick and sync tile solidity. Ships caught
+ * inside a closing door tile are pushed out along the least-penetration
+ * axis (no damage — crushing is the pistons' job).
+ */
+function updateDoors(doorState, doorTiles, tiles, ships, dt) {
+  const openTime = CONFIG.HAZARDS.DOOR.OPEN_TIME;
+  const step = dt / openTime;
+  const TS = CONFIG.TILE_SIZE;
+
+  for (const group in doorState) {
+    const d = doorState[group];
+    const target = d.open ? 1 : 0;
+    if (d.frac < target) d.frac = Math.min(target, d.frac + step);
+    else if (d.frac > target) d.frac = Math.max(target, d.frac - step);
+  }
+
+  for (const door of doorTiles) {
+    const d = doorState[door.group];
+    const solid = d.frac < 1;
+    tiles[door.r][door.c] = solid ? TILE.DOOR : TILE.FLOOR;
+
+    if (!solid || !ships) continue;
+    // Push ships out of a closed/closing door tile
+    const x0 = door.c * TS, y0 = door.r * TS;
+    for (const ship of Object.values(ships)) {
+      if (!ship.alive) continue;
+      const R = CONFIG.SHIP_RADIUS;
+      const dxp = ship.x - (x0 + TS / 2);
+      const dyp = ship.y - (y0 + TS / 2);
+      const ox = TS / 2 + R - Math.abs(dxp);
+      const oy = TS / 2 + R - Math.abs(dyp);
+      if (ox <= 0 || oy <= 0) continue;
+      if (ox < oy) { ship.x += Math.sign(dxp || 1) * ox; ship.vx = 0; }
+      else         { ship.y += Math.sign(dyp || 1) * oy; ship.vy = 0; }
+    }
+  }
+}
+
+/**
+ * Create a piston (CA PISTONS / crusher) from an arena hazard definition
+ * { x, y, axis } — (x, y) is the origin tile-center.
+ */
+function createPiston(def) {
+  return {
+    ox: def.x, oy: def.y,       // origin (tile center)
+    x: def.x,  y: def.y,        // current block center
+    axis: def.axis || 'x',
+    offset: 0,                  // px along axis, ±RANGE tiles
+    dir: 1,
+    pauseTimer: 0,
+    phase: 0,                   // offset normalized to -1..1 (for clients)
+  };
+}
+
+/**
+ * Move pistons one tick (triangle wave ±RANGE tiles, PAUSE at extremes) and
+ * resolve ship interaction: the 1-tile block is a moving solid — ships are
+ * pushed out along the least-penetration axis; if the pushed position lands
+ * inside a solid tile the ship is crushed (heavy dps).
+ * Returns { damages: [{ ship, dmg }] } — the caller applies them.
+ * (Bullets treat the block as a wall — see weapons.updateBullets.)
+ */
+function updatePistons(pistons, ships, arena, dt) {
+  const damages = [];
+  const cfg   = CONFIG.HAZARDS.PISTON;
+  const range = cfg.RANGE * CONFIG.TILE_SIZE;
+  const half  = CONFIG.TILE_SIZE / 2;
+  const R     = CONFIG.SHIP_RADIUS;
+
+  for (const p of pistons) {
+    if (p.pauseTimer > 0) {
+      p.pauseTimer -= dt;
+    } else {
+      p.offset += p.dir * cfg.SPEED * dt;
+      if (p.offset >= range)       { p.offset =  range; p.dir = -1; p.pauseTimer = cfg.PAUSE; }
+      else if (p.offset <= -range) { p.offset = -range; p.dir =  1; p.pauseTimer = cfg.PAUSE; }
+    }
+    p.x = p.axis === 'x' ? p.ox + p.offset : p.ox;
+    p.y = p.axis === 'y' ? p.oy + p.offset : p.oy;
+    p.phase = range > 0 ? p.offset / range : 0;
+
+    for (const ship of Object.values(ships)) {
+      if (!ship.alive) continue;
+      const dx = ship.x - p.x;
+      const dy = ship.y - p.y;
+      const ox = half + R - Math.abs(dx);
+      const oy = half + R - Math.abs(dy);
+      if (ox <= 0 || oy <= 0) continue;
+
+      // Push out along the smaller penetration axis
+      if (ox < oy) { ship.x += Math.sign(dx || 1) * ox; ship.vx = 0; }
+      else         { ship.y += Math.sign(dy || 1) * oy; ship.vy = 0; }
+
+      // Crushed if the escape position is inside a wall
+      if (isSolidAt(arena.tiles, ship.x, ship.y)) {
+        damages.push({ ship, dmg: cfg.CRUSH_DPS * dt });
+      }
+    }
+  }
+
+  return { damages };
+}
+
+module.exports = { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes,
+                   createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons };

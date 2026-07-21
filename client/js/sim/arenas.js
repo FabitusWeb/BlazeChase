@@ -6,7 +6,7 @@
 'use strict';
 
 import CONFIG from './config.js';
-import { generateArena } from './arena.js';
+import { generateArena, isSolid } from './arena.js';
 const { TILE, ARENA_COLS: COLS, ARENA_ROWS: ROWS } = CONFIG;
 
 // ── Char legend (one char per tile) ──────────────────────────
@@ -18,6 +18,11 @@ const { TILE, ARENA_COLS: COLS, ARENA_ROWS: ROWS } = CONFIG;
 // <  gravity left (floor)               >  gravity right (floor)
 // ^  gravity up (floor)                 v  gravity down (floor)
 // 1  wormhole pair 1 (floor)            2  wormhole pair 2 (floor)
+// 3  door tile, group 3 (DOOR)          4  door tile, group 4 (DOOR)
+// b  trigger button → group 3 (floor)   n  trigger button → group 4 (floor)
+// u  one-way up (ONEWAY)                j  one-way down (ONEWAY)
+// h  one-way left (ONEWAY)              k  one-way right (ONEWAY)
+// Z  piston/crusher origin (floor)
 const CHAR_TILES = {
   '#': TILE.WALL_SOLID,
   'D': TILE.WALL_DEST,
@@ -25,9 +30,20 @@ const CHAR_TILES = {
   'A': TILE.ACID,
   'R': TILE.REFUEL,
   'G': TILE.GLASS,
+  '3': TILE.DOOR,
+  '4': TILE.DOOR,
 };
+// One-way walls: tile becomes ONEWAY, allowed travel direction in oneWayDir
+const ONEWAY_CHARS = {
+  u: { dx: 0, dy: -1 },
+  j: { dx: 0, dy: 1 },
+  h: { dx: -1, dy: 0 },
+  k: { dx: 1, dy: 0 },
+};
+// Door group per door char; buttons map to the same groups
+const DOOR_GROUPS = { '3': 3, '4': 4, b: 3, n: 4 };
 // Feature chars: the tile stays FLOOR, the char marks a gameplay object
-const FEATURE_CHARS = new Set(['S', 'P', 'M', 'T', 'O', 'B', '<', '>', '^', 'v', '1', '2']);
+const FEATURE_CHARS = new Set(['S', 'P', 'M', 'T', 'O', 'B', '<', '>', '^', 'v', '1', '2', 'b', 'n', 'Z']);
 
 // ── Layouts ──────────────────────────────────────────────────
 // Every map is 30 rows of 40 chars. Outer border must be '#'
@@ -168,7 +184,7 @@ const LAYOUTS = [
       '#..............DDDDDDDDDD..............#',
       '#.............D..........D.............#',
       '#.............D..........D.............#',
-      '#.R...........D....T.....D.............#',
+      '#.R.........n.4....T.....D.............#',
       '#.............D..........D...........R.#',
       '#.............D..........D.............#',
       '#.............D..........D.............#',
@@ -389,8 +405,10 @@ const LAYOUTS = [
   // ONEWAY walls, OVERLAYS/GIZ/BGSTICKERS decorations.
   {
     // Source: levels/chase.LEV (3x3 screens, ADDON1.SET, 85 blocks).
-    // Dropped: 1 door, 2 pistons, 2 path vehicles, 1 destructible
-    // building, 4 STF cans, triggers.
+    // Restored (F7b): 1 door (group 3) + shootable trigger button
+    // guarding the bottom-left wormhole closet.
+    // Dropped: 2 pistons, 2 path vehicles, 1 destructible
+    // building, 4 STF cans, remaining triggers.
     // Variations: CA's 7 wormhole endpoints (2 multi-endpoint
     // networks) reduced to two clean pairs; right refill bunker
     // mirrored; acid trench on the right edge straightened;
@@ -428,7 +446,7 @@ const LAYOUTS = [
       '#........#..AAA######...D....DDAD......#',
       '#........#..AAA######...#....APPA......#',
       '#.####.##...AAAA#####...D....D..D......#',
-      '#.#.2P.......................D..D......#',
+      '#.#.2P3.b....................D..D......#',
       '#.#....##.#############......DDDD......#',
       '########################################',
     ],
@@ -528,6 +546,8 @@ const LAYOUTS = [
     // Source: levels/intermediate/ROOMS OF CHAOS.LEV (3x3 screens,
     // CLASSIC.SET, 78 blocks, 3 gravity zones, 3 wormholes).
     // Maze-like room grid.
+    // Restored (F7b): 2 one-way walls ('u' in the left vertical
+    // corridor, 'k' in the top horizontal corridor).
     // Dropped: 12 doors (2 of them became permanent wall gaps in the
     // left/right wall columns), 2 destructible buildings.
     // Variations: 3-end wormhole network reduced to one pair (third
@@ -541,9 +561,9 @@ const LAYOUTS = [
       '########################################',
       '#...DDDD.DDDDD.DDDD.DDDDD.DDDD.........#',
       '#..D1....DDDDDD.....DDD.D.....D........#',
-      '#..D.............DD....P......D........#',
+      '#..D......k......DD....P......D........#',
       '#..D.....DDDD....DD...........D........#',
-      '#..DDDDD.DDD.DDDDD......D..DD.D........#',
+      '#..DDDDDuDDD.DDDDD......D..DD.D........#',
       '#...DDDD.DDDD.DDDDDD.###..DDDD.........#',
       '#..D.....DDDDD..D...D.........D........#',
       '#..D.....DDD.D..D.S.D.........D........#',
@@ -574,7 +594,8 @@ const LAYOUTS = [
     // Source: levels/intermediate/INTERCONECTION VOID.LEV (4x4
     // screens, ADDON1.SET, 222 blocks, 26 gravity zones, 3 wormholes,
     // 4 powerups). Gravity-saturated destructible maze.
-    // Dropped: 4 doors, 1 piston, trigger collectors.
+    // Restored (F7b): 1 piston ('Z') sliding along the top corridor.
+    // Dropped: 4 doors, trigger collectors.
     // Variations: 8-way CA gravity rendered as 4-way (two big
     // diagonal channels -> one '>' flow), 3 wormholes reduced to one
     // pair, central refill vault kept, 4th spawn added at top-right
@@ -585,7 +606,7 @@ const LAYOUTS = [
     theme: 'LAVA',
     map: [
       '########################################',
-      '#DDDDDDDDDD............................#',
+      '#DDDDDDDDDD.........Z..................#',
       '#D..>>>>>>DDDDDDD.DDDDDD.DDD...........#',
       '#D.DDD>>>>>DDDDD>DDDDDD>D>R............#',
       '#D.DDDDDDDDDDDDDDDD>>>>>>>>D...........#',
@@ -685,10 +706,15 @@ function parseArena(layout) {
 
   const tiles  = Array.from({ length: ROWS }, () => new Array(COLS).fill(TILE.FLOOR));
   const wallHP = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+  // F7b grids: doorGroup[r][c] = door group id (0 = not a door);
+  // oneWayDir[r][c] = { dx, dy } allowed direction (null = not one-way)
+  const doorGroup = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+  const oneWayDir = Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
 
   const spawnPoints  = [];
   const powerupSpots = [];
-  const hazards = { mines: [], turrets: [], blackholes: [], gravity: [], wormholes: [], wave: layout.wave || null };
+  const hazards = { mines: [], turrets: [], blackholes: [], gravity: [], wormholes: [], wave: layout.wave || null,
+                    doors: [], buttons: [], pistons: [], oneWays: [] };
 
   for (let r = 0; r < ROWS; r++) {
     const row = layout.map[r];
@@ -700,6 +726,16 @@ function parseArena(layout) {
       if (ch in CHAR_TILES) {
         tiles[r][c] = CHAR_TILES[ch];
         if (tiles[r][c] === TILE.WALL_DEST) wallHP[r][c] = CONFIG.WALL_DEST_HP;
+        if (tiles[r][c] === TILE.DOOR) {
+          const group = DOOR_GROUPS[ch];
+          doorGroup[r][c] = group;
+          hazards.doors.push({ ...center(c, r), c, r, group });
+        }
+      } else if (ch in ONEWAY_CHARS) {
+        tiles[r][c] = TILE.ONEWAY;
+        const dir = ONEWAY_CHARS[ch];
+        oneWayDir[r][c] = dir;
+        hazards.oneWays.push({ ...center(c, r), c, r, ...dir });
       } else if (FEATURE_CHARS.has(ch)) {
         tiles[r][c] = TILE.FLOOR;
         const pos = center(c, r);
@@ -714,6 +750,8 @@ function parseArena(layout) {
         else if (ch === '^') hazards.gravity.push({ ...pos, dx: 0, dy: -1 });
         else if (ch === 'v') hazards.gravity.push({ ...pos, dx: 0, dy: 1 });
         else if (ch === '1' || ch === '2') hazards.wormholes.push({ id: ch, ...pos });
+        else if (ch === 'b' || ch === 'n') hazards.buttons.push({ ...pos, c, r, group: DOOR_GROUPS[ch] });
+        else if (ch === 'Z') hazards.pistons.push({ ...pos, c, r });
       } else {
         throw new Error(`Arena '${layout.id}': unknown char '${ch}' at ${r},${c}`);
       }
@@ -737,7 +775,24 @@ function parseArena(layout) {
     throw new Error(`Arena '${layout.id}': needs at least 1 powerup spot (P)`);
   }
 
-  return { tiles, wallHP, theme: layout.theme, spawnPoints, powerupSpots, hazards };
+  // Pistons: pick the slide axis = the longer free run through the origin
+  // tile (default horizontal on a tie). Free = not solid at parse time.
+  for (const p of hazards.pistons) {
+    const runLen = (dc, dr) => {
+      let len = 1;
+      for (const s of [1, -1]) {
+        let c = p.c + dc * s, r = p.r + dr * s;
+        while (r >= 0 && r < ROWS && c >= 0 && c < COLS && !isSolid(tiles[r][c])) {
+          len++; c += dc * s; r += dr * s;
+        }
+      }
+      return len;
+    };
+    p.axis = runLen(1, 0) >= runLen(0, 1) ? 'x' : 'y';
+  }
+
+  return { tiles, wallHP, theme: layout.theme, spawnPoints, powerupSpots, hazards,
+           doorGroup, oneWayDir };
 }
 
 /**

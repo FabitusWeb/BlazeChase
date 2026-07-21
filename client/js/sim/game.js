@@ -10,7 +10,8 @@ import { getArena } from './arenas.js';
 import { updateShip, resolveShipCollisions, createShip } from './physics.js';
 import { fireBullets, updateBullets, updateMines, explode } from './weapons.js';
 import { updatePowerups, checkPickups, createPowerup } from './powerups.js';
-import { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes } from './hazards.js';
+import { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes,
+        createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons } from './hazards.js';
 import { createAIShip, updateAI } from './enemies.js';
 import { getMission } from './missions.js';
 const { TILE } = CONFIG;
@@ -101,6 +102,11 @@ class Game {
     this.waveState  = this.hazards.wave
       ? { ...this.hazards.wave, timer: 6, active: null }
       : null;
+    // F7b: CA doors + trigger buttons, one-way walls, pistons
+    this.doorTiles  = this.hazards.doors   || [];
+    this.buttons    = this.hazards.buttons || [];
+    this.doorState  = createDoorState(this.doorTiles);
+    this.pistons    = (this.hazards.pistons || []).map(d => createPiston(d));
     // Arena-placed proximity mines: ownerless (no kill credit), pre-armed.
     // Negative ids never collide with weapon-laid mine ids.
     let hazardMineId = -1;
@@ -145,6 +151,10 @@ class Game {
         gravity:    this.gravity,
         wormholes:  this.wormholes,
         wave:       this.hazards.wave,
+        doors:      this.doorTiles,
+        buttons:    this.buttons,
+        oneWays:    this.hazards.oneWays || [],
+        pistons:    this.pistons.map(p => ({ x: p.ox, y: p.oy, axis: p.axis })),
       },
     });
 
@@ -334,7 +344,7 @@ class Game {
 
     // ── Update bullets ────────────────────────────────────
     const { survived, events: bulletEvents } = updateBullets(
-      this.bullets, this.ships, this.arena, dt, this.turrets
+      this.bullets, this.ships, this.arena, dt, this.turrets, this.pistons
     );
     this.bullets = survived;
 
@@ -385,6 +395,19 @@ class Game {
     // Wormholes teleport ships between paired endpoints
     for (const ev of updateWormholes(this.wormholes, this.ships, dt).events) {
       this.events.push({ type: 'event', ...ev });
+    }
+
+    // Doors: advance open/close animation + tile solidity
+    if (this.doorTiles.length > 0) {
+      updateDoors(this.doorState, this.doorTiles, this.arena.tiles, this.ships, dt);
+    }
+
+    // Pistons: slide, push ships, crush against walls
+    if (this.pistons.length > 0) {
+      const { damages } = updatePistons(this.pistons, this.ships, this.arena, dt);
+      for (const { ship, dmg } of damages) {
+        this._damageEnvironment(ship, dmg);
+      }
     }
 
     // Periodic energy wave
@@ -469,6 +492,30 @@ class Game {
 
     if (ev.kind === 'turret_hit') {
       this._damageTurret(ev.turret, ev.bullet.damage, ev.bullet.ownerId);
+      this.events.push({
+        type: 'event', kind: 'explosion',
+        x: ev.bullet.x, y: ev.bullet.y, size: 'small',
+      });
+    }
+
+    if (ev.kind === 'button_hit') {
+      // Trigger button: toggle the linked door group (CA TRIGGERS, F7b)
+      const btn = this.buttons.find(b => b.c === ev.tx && b.r === ev.ty);
+      if (btn) {
+        const open = toggleDoorGroup(this.doorState, btn.group);
+        if (open !== null) {
+          this.events.push({ type: 'event', kind: 'door', group: btn.group, open });
+        }
+        this.events.push({ type: 'event', kind: 'button_hit', x: btn.x, y: btn.y });
+      }
+      this.events.push({
+        type: 'event', kind: 'explosion',
+        x: ev.bullet.x, y: ev.bullet.y, size: 'small',
+      });
+    }
+
+    if (ev.kind === 'piston_hit') {
+      // Small spark for bullet impact on a piston block
       this.events.push({
         type: 'event', kind: 'explosion',
         x: ev.bullet.x, y: ev.bullet.y, size: 'small',
@@ -839,6 +886,12 @@ class Game {
       ? { axis: this.waveState.axis, pos: this.waveState.active.pos, dir: this.waveState.active.dir }
       : null;
 
+    // F7b: door open fractions (per group) + piston block positions
+    const doors = Object.entries(this.doorState).map(([group, d]) => ({
+      group: Number(group), open: d.open, frac: d.frac,
+    }));
+    const pistons = this.pistons.map(p => ({ x: p.x, y: p.y, phase: p.phase }));
+
     this.broadcast({
       type:    'state',
       tick:    this.tickCount,
@@ -849,6 +902,8 @@ class Game {
       soloInfo,
       turrets,
       wave,
+      doors,
+      pistons,
     });
   }
 }

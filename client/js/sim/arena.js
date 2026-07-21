@@ -134,7 +134,9 @@ function generateArena() {
 
   const hazards = generateHazards(tiles, spawnPoints, powerupSpots, rng);
 
-  return { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards };
+  // Procedural arenas have no doors / one-way walls (F7b grids → null)
+  return { tiles, wallHP, theme, spawnPoints, powerupSpots, hazards,
+           doorGroup: null, oneWayDir: null };
 }
 
 /**
@@ -167,7 +169,9 @@ function generateHazards(tiles, spawnPoints, powerupSpots, rng) {
   };
 
   const used = new Set();  // "c,r" tiles already taken by a hazard
-  const hazards = { mines: [], turrets: [], blackholes: [], wave: null };
+  // doors/buttons/pistons/one-ways only exist in handcrafted layouts (F7b)
+  const hazards = { mines: [], turrets: [], blackholes: [], wave: null,
+                    doors: [], buttons: [], pistons: [], oneWays: [] };
 
   // ── Proximity mines: 4-8 on random floor tiles ────────────
   const mineCount = randInt(rng, 4, 8);

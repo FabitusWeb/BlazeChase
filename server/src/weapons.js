@@ -211,10 +211,13 @@ function explode(x, y, radius, damage, ownerId, ships) {
 /**
  * Update all bullets for one tick.
  * Returns { survived, events }
- * events: array of { kind:'bullet_hit'|'wall_hit'|'turret_hit', bullet, ship?, turret?, tx?, ty? }
+ * events: array of { kind:'bullet_hit'|'wall_hit'|'turret_hit'|'button_hit'|'piston_hit', bullet, ship?, turret?, tx?, ty? }
  * Turrets (optional) are destructible targets; a turret's own bullets pass through it.
+ * Pistons (optional) are moving solid blocks — bullets die on them like on walls.
+ * Trigger buttons (arena.hazards.buttons, F7b): ANY bullet (ships', AI's,
+ * turrets') entering a button tile triggers it and is destroyed.
  */
-function updateBullets(bullets, ships, arena, dt, turrets = []) {
+function updateBullets(bullets, ships, arena, dt, turrets = [], pistons = []) {
   const survived = [];
   const events   = [];
 
@@ -264,6 +267,34 @@ function updateBullets(bullets, ships, arena, dt, turrets = []) {
       const tileType = getTileAt(arena.tiles, b.x, b.y);
       events.push({ kind: 'wall_hit', bullet: b, tx: col, ty: row, tileType });
       continue; // bullet destroyed
+    }
+
+    // Piston blocks (moving solids): bullet dies like on a wall
+    let pistonHit = false;
+    for (const p of pistons) {
+      const half = CONFIG.TILE_SIZE / 2;
+      if (Math.abs(b.x - p.x) <= half && Math.abs(b.y - p.y) <= half) {
+        events.push({ kind: 'piston_hit', bullet: b });
+        pistonHit = true;
+        break;
+      }
+    }
+    if (pistonHit) continue;
+
+    // Trigger buttons: any bullet entering the tile fires the trigger
+    const buttons = arena.hazards && arena.hazards.buttons;
+    if (buttons && buttons.length > 0) {
+      const col = Math.floor(b.x / CONFIG.TILE_SIZE);
+      const row = Math.floor(b.y / CONFIG.TILE_SIZE);
+      let buttonHit = false;
+      for (const btn of buttons) {
+        if (btn.c === col && btn.r === row) {
+          events.push({ kind: 'button_hit', bullet: b, tx: col, ty: row });
+          buttonHit = true;
+          break;
+        }
+      }
+      if (buttonHit) continue; // bullet destroyed
     }
 
     // Turret collision (a turret never hits itself)

@@ -101,10 +101,10 @@ function updateShip(ship, input, dt, arena) {
 
   // ── Movement + Collision ─────────────────────────────────
   const newX = ship.x + ship.vx * dt;
-  ship.x = resolveAxisX(ship, newX, arena.tiles);
+  ship.x = resolveAxisX(ship, newX, arena.tiles, arena.oneWayDir);
 
   const newY = ship.y + ship.vy * dt;
-  ship.y = resolveAxisY(ship, newY, arena.tiles);
+  ship.y = resolveAxisY(ship, newY, arena.tiles, arena.oneWayDir);
 
   // ── Environment effects ──────────────────────────────────
   const tileUnder = getTileAt(arena.tiles, ship.x, ship.y);
@@ -134,21 +134,22 @@ function updateShip(ship, input, dt, arena) {
 /**
  * Resolve X-axis tile collision.
  */
-function resolveAxisX(ship, newX, tiles) {
+function resolveAxisX(ship, newX, tiles, oneWayDir) {
   const r = CONFIG.SHIP_RADIUS;
+  const dir = Math.sign(ship.vx);
   // Test leading edges
   if (ship.vx > 0) {
     // Moving right — test right edge
-    if (isSolidAt(tiles, newX + r, ship.y - r * 0.6) ||
-        isSolidAt(tiles, newX + r, ship.y + r * 0.6)) {
+    if (isSolidAt(tiles, newX + r, ship.y - r * 0.6, oneWayDir, dir, 0) ||
+        isSolidAt(tiles, newX + r, ship.y + r * 0.6, oneWayDir, dir, 0)) {
       const col = Math.floor((newX + r) / TILE_SIZE);
       ship.vx = 0;
       return col * TILE_SIZE - r - 0.1;
     }
   } else if (ship.vx < 0) {
     // Moving left — test left edge
-    if (isSolidAt(tiles, newX - r, ship.y - r * 0.6) ||
-        isSolidAt(tiles, newX - r, ship.y + r * 0.6)) {
+    if (isSolidAt(tiles, newX - r, ship.y - r * 0.6, oneWayDir, dir, 0) ||
+        isSolidAt(tiles, newX - r, ship.y + r * 0.6, oneWayDir, dir, 0)) {
       const col = Math.floor((newX - r) / TILE_SIZE) + 1;
       ship.vx = 0;
       return col * TILE_SIZE + r + 0.1;
@@ -160,18 +161,19 @@ function resolveAxisX(ship, newX, tiles) {
 /**
  * Resolve Y-axis tile collision.
  */
-function resolveAxisY(ship, newY, tiles) {
+function resolveAxisY(ship, newY, tiles, oneWayDir) {
   const r = CONFIG.SHIP_RADIUS;
+  const dir = Math.sign(ship.vy);
   if (ship.vy > 0) {
-    if (isSolidAt(tiles, ship.x - r * 0.6, newY + r) ||
-        isSolidAt(tiles, ship.x + r * 0.6, newY + r)) {
+    if (isSolidAt(tiles, ship.x - r * 0.6, newY + r, oneWayDir, 0, dir) ||
+        isSolidAt(tiles, ship.x + r * 0.6, newY + r, oneWayDir, 0, dir)) {
       const row = Math.floor((newY + r) / TILE_SIZE);
       ship.vy = 0;
       return row * TILE_SIZE - r - 0.1;
     }
   } else if (ship.vy < 0) {
-    if (isSolidAt(tiles, ship.x - r * 0.6, newY - r) ||
-        isSolidAt(tiles, ship.x + r * 0.6, newY - r)) {
+    if (isSolidAt(tiles, ship.x - r * 0.6, newY - r, oneWayDir, 0, dir) ||
+        isSolidAt(tiles, ship.x + r * 0.6, newY - r, oneWayDir, 0, dir)) {
       const row = Math.floor((newY - r) / TILE_SIZE) + 1;
       ship.vy = 0;
       return row * TILE_SIZE + r + 0.1;
@@ -180,13 +182,30 @@ function resolveAxisY(ship, newY, tiles) {
   return newY;
 }
 
-function isSolidAt(tiles, wx, wy) {
+/**
+ * Tile solidity query at world position.
+ * One-way walls (CA ONE WAY, F7b): when a movement direction is supplied
+ * (ship axis resolution), the tile is passable iff the movement component
+ * along the allowed axis matches the allowed sign. Without direction
+ * context (bullets, AI, beams) one-ways are solid — documented choice:
+ * CA bullets ignore one-ways, we keep them solid for simplicity.
+ */
+function isSolidAt(tiles, wx, wy, oneWayDir, moveDx, moveDy) {
   const col = Math.floor(wx / TILE_SIZE);
   const row = Math.floor(wy / TILE_SIZE);
   const ROWS = CONFIG.ARENA_ROWS;
   const COLS = CONFIG.ARENA_COLS;
   if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return true;
   const t = tiles[row][col];
+  if (t === TILE.ONEWAY) {
+    const d = oneWayDir && oneWayDir[row] ? oneWayDir[row][col] : null;
+    if (d && moveDx !== undefined && moveDy !== undefined) {
+      if ((d.dx !== 0 && moveDx === d.dx) || (d.dy !== 0 && moveDy === d.dy)) {
+        return false;  // moving along the allowed direction → passable
+      }
+    }
+    return true;
+  }
   return isSolid(t);
 }
 

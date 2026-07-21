@@ -657,6 +657,103 @@ export class FXSystem {
       }
       ctx.restore();
     }
+
+    // ── Trigger buttons (CA TRIGGERS): red domes on a plate ──
+    const hz = this.arena?.arenaData?.hazards || {};
+    for (const b of hz.buttons || []) {
+      const sx = b.x - camX;
+      const sy = b.y - camY;
+      ctx.save();
+      // Plate
+      ctx.fillStyle = '#2A2A32';
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1;
+      ctx.fillRect(sx - 9, sy - 9, 18, 18);
+      ctx.strokeRect(sx - 9, sy - 9, 18, 18);
+      // Dome (pulsing red)
+      const pulse = 0.65 + 0.35 * Math.sin(time * 2.5 + b.x * 0.1);
+      const grad = ctx.createRadialGradient(sx - 1.5, sy - 2, 0.5, sx, sy, 6.5);
+      grad.addColorStop(0, `rgba(255,180,180,${pulse})`);
+      grad.addColorStop(0.5, `rgba(230,40,40,${pulse})`);
+      grad.addColorStop(1, 'rgba(120,10,10,0.9)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ── Doors: yellow-striped metal slab, slides open by fraction ──
+    const doorFrac = {};
+    for (const d of state.doors || []) doorFrac[d.group] = d.frac;
+    for (const dt of hz.doors || []) {
+      const frac = doorFrac[dt.group] ?? 0;   // 0 = chiusa, 1 = tutta aperta
+      if (frac >= 1) continue;
+      const TSD = CONFIG.TILE_SIZE;
+      const sx = dt.x - camX - TSD / 2;
+      const sy = dt.y - camY - TSD / 2 - frac * TSD;   // scivola verso l'alto
+      ctx.save();
+      ctx.globalAlpha = 1 - frac * 0.4;
+      // Slab metallico
+      const grad = ctx.createLinearGradient(sx, sy, sx, sy + TSD);
+      grad.addColorStop(0, '#C8CCD8');
+      grad.addColorStop(0.5, '#7A8090');
+      grad.addColorStop(1, '#3A3E48');
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx + 1, sy, TSD - 2, TSD);
+      // Strisce hazard orizzontali sulla faccia
+      ctx.fillStyle = '#E8C820';
+      ctx.fillRect(sx + 1, sy + TSD * 0.35, TSD - 2, 5);
+      ctx.fillRect(sx + 1, sy + TSD * 0.6, TSD - 2, 5);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(sx + 3 + i * 10, sy + TSD * 0.35, 4, 5);
+        ctx.fillRect(sx + 3 + i * 10, sy + TSD * 0.6, 4, 5);
+      }
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx + 1, sy, TSD - 2, TSD);
+      ctx.restore();
+    }
+
+    // ── Pistons: track line + riveted block at current position ──
+    for (const pd of hz.pistons || []) {
+      const ox = pd.x - camX;
+      const oy = pd.y - camY;
+      const TSD = CONFIG.TILE_SIZE;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      if (pd.axis === 'y') { ctx.moveTo(ox, oy - TSD * 2.5); ctx.lineTo(ox, oy + TSD * 2.5); }
+      else                 { ctx.moveTo(ox - TSD * 2.5, oy); ctx.lineTo(ox + TSD * 2.5, oy); }
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const p of state.pistons || []) {
+      const TSD = CONFIG.TILE_SIZE;
+      const sx = p.x - camX - TSD / 2;
+      const sy = p.y - camY - TSD / 2;
+      ctx.save();
+      const grad = ctx.createLinearGradient(sx, sy, sx, sy + TSD);
+      grad.addColorStop(0, '#9AA0B0');
+      grad.addColorStop(0.5, '#5A6070');
+      grad.addColorStop(1, '#2A2E38');
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx + 2, sy + 2, TSD - 4, TSD - 4);
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx + 2, sy + 2, TSD - 4, TSD - 4);
+      // Rivetti
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      for (const [rx, ry] of [[6, 6], [TSD - 6, 6], [6, TSD - 6], [TSD - 6, TSD - 6]]) {
+        ctx.beginPath();
+        ctx.arc(sx + rx, sy + ry, 2, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   /** Draw floating power-ups */
