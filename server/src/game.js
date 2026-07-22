@@ -8,7 +8,8 @@ const { updateShip, resolveShipCollisions, createShip } = require('./physics');
 const { fireBullets, updateBullets, updateMines, explode } = require('./weapons');
 const { updatePowerups, checkPickups, createPowerup } = require('./powerups');
 const { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes,
-        createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons } = require('./hazards');
+        createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons,
+        createPathVehicle, updatePathVehicles } = require('./hazards');
 const { createAIShip, updateAI } = require('./enemies');
 const { getMission } = require('./missions');
 const { TILE } = CONFIG;
@@ -104,6 +105,8 @@ class Game {
     this.buttons    = this.hazards.buttons || [];
     this.doorState  = createDoorState(this.doorTiles);
     this.pistons    = (this.hazards.pistons || []).map(d => createPiston(d));
+    // F7c: path vehicles (CA PATHVEHICLES)
+    this.pathVehicles = (this.hazards.pathVehicles || []).map(d => createPathVehicle(d));
     // Arena-placed proximity mines: ownerless (no kill credit), pre-armed.
     // Negative ids never collide with weapon-laid mine ids.
     let hazardMineId = -1;
@@ -149,6 +152,7 @@ class Game {
         buttons:    this.buttons,
         oneWays:    this.hazards.oneWays || [],
         pistons:    this.pistons.map(p => ({ x: p.ox, y: p.oy, axis: p.axis })),
+        pathVehicles: (this.hazards.pathVehicles || []).map(v => ({ points: v.points, speed: v.speed })),
       },
     };
   }
@@ -353,7 +357,8 @@ class Game {
 
     // ── Update bullets ────────────────────────────────────
     const { survived, events: bulletEvents } = updateBullets(
-      this.bullets, this.ships, this.arena, dt, this.turrets, this.pistons
+      this.bullets, this.ships, this.arena, dt, this.turrets,
+      [...this.pistons, ...this.pathVehicles]   // blocchi mobili solidi (F7b/F7c)
     );
     this.bullets = survived;
 
@@ -445,6 +450,14 @@ class Game {
     // Pistons: slide, push ships, crush against walls
     if (this.pistons.length > 0) {
       const { damages } = updatePistons(this.pistons, this.ships, this.arena, dt);
+      for (const { ship, dmg } of damages) {
+        this._damageEnvironment(ship, dmg);
+      }
+    }
+
+    // F7c: path vehicles su binario (spingono/schiacciano come i pistoni)
+    if (this.pathVehicles.length > 0) {
+      const { damages } = updatePathVehicles(this.pathVehicles, this.ships, this.arena, dt);
       for (const { ship, dmg } of damages) {
         this._damageEnvironment(ship, dmg);
       }
@@ -977,6 +990,9 @@ class Game {
     }));
     const lazerTraps = this.lazerTraps.map(t => ({ x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2 }));
 
+    // F7c: posizione/angolo dei path vehicles
+    const pathVehicles = this.pathVehicles.map(v => ({ x: v.x, y: v.y, angle: v.angle }));
+
     this.broadcast({
       type:    'state',
       tick:    this.tickCount,
@@ -991,6 +1007,7 @@ class Game {
       pistons,
       stickies,
       lazerTraps,
+      pathVehicles,
     });
   }
 }

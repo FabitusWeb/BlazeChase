@@ -124,6 +124,7 @@ const CONFIG = {
     WORMHOLE: { RADIUS: 22, COOLDOWN: 1.0 },  // teletrasporto a coppie (char '1'/'2')
     DOOR:    { OPEN_TIME: 0.5 },              // secondi per aprire/chiudere (animazione)
     PISTON:  { SPEED: 60, RANGE: 2, PAUSE: 0.6, CRUSH_DPS: 120 },  // RANGE in tile (±)
+    PATHVEHICLE: { SPEED: 60, CRUSH_DPS: 60 },  // veicoli su binario (CA PATHVEHICLES)
   },
 
   // ── Power-ups ─────────────────────────────────────────────

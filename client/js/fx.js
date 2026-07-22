@@ -791,6 +791,42 @@ export class FXSystem {
       ctx.fill();
       ctx.restore();
     }
+
+    // ── Path vehicles (F7c): binario giallo tratteggiato + vettura ──
+    for (const pv of hz.pathVehicles || []) {
+      if (!pv.points || pv.points.length < 2) continue;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(232,200,32,0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(pv.points[0].x - camX, pv.points[0].y - camY);
+      for (let i = 1; i < pv.points.length; i++) {
+        ctx.lineTo(pv.points[i].x - camX, pv.points[i].y - camY);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const v of state.pathVehicles || []) {
+      const sx = v.x - camX;
+      const sy = v.y - camY;
+      const TSD = CONFIG.TILE_SIZE;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(v.angle || 0);
+      // Vettura: blocco metallico con muso giallo
+      const grad = ctx.createLinearGradient(-TSD / 2, 0, TSD / 2, 0);
+      grad.addColorStop(0, '#5A6070');
+      grad.addColorStop(0.7, '#3A3E48');
+      grad.addColorStop(1, '#E8C820');
+      ctx.fillStyle = grad;
+      ctx.fillRect(-TSD / 2 + 2, -TSD / 2 + 4, TSD - 4, TSD - 8);
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-TSD / 2 + 2, -TSD / 2 + 4, TSD - 4, TSD - 8);
+      ctx.restore();
+    }
   }
 
   /** Draw floating power-ups */

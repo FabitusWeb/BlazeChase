@@ -1,9 +1,33 @@
 // client/js/arena.js — Arena pre-renderer with offscreen canvases
 // Visual style: Chase Ace — dark metal floor panels, riveted walls,
 // yellow/black hazard stripes on wall edges facing open floor
+// Con permesso degli autori (Biodome/Space Time Foam): tile originali CA
+// per muri e casse distruttibili (fallback procedurale se non caricate)
 
 const T = CONFIG.TILE;
 const TS = CONFIG.TILE_SIZE;
+
+// Sprite originali CA (caricati da main.js via loadTileSprites)
+const TILE_SPRITES = { wall: null, crate: null };
+
+export function loadTileSprites() {
+  const load = (src) => new Promise((res) => {
+    if (typeof Image === 'undefined') return res(null);   // Node/test env
+    try {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    } catch { res(null); }
+  });
+  return Promise.all([
+    load('assets/tiles/wall_yellow2.png'),
+    load('assets/tiles/crate.png'),
+  ]).then(([wall, crate]) => {
+    TILE_SPRITES.wall  = wall;
+    TILE_SPRITES.crate = crate;
+  });
+}
 
 export class ArenaRenderer {
   constructor(arenaData, resScale = 1) {
@@ -138,11 +162,20 @@ export class ArenaRenderer {
     }
   }
 
-  // ── Solid wall: blue-gray metal panel, pillow bevel, vents & rivets ──
+  // ── Solid wall: sprite CA originale (fallback: metallo procedurale) ──
   _drawWallSolid(ctx, x, y, c, r) {
     const th = this.theme;
     const rng = seededRng(c * 31337 + r * 733);
 
+    if (TILE_SPRITES.wall) {
+      // Tile metallico originale Chase Ace
+      ctx.drawImage(TILE_SPRITES.wall, x, y, TS, TS);
+      // Leggera variazione di tono seeded per spezzare la ripetizione
+      if (rng() > 0.6) {
+        ctx.fillStyle = rng() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.10)';
+        ctx.fillRect(x, y, TS, TS);
+      }
+    } else {
     // Base metal — cool blue-gray (Chase Ace Deluxe walls)
     const base = blendColor(th.wall, '#3a4a5c', 0.55);
     ctx.fillStyle = shadeColor(base, 0.95 + rng() * 0.1);
@@ -202,6 +235,9 @@ export class ArenaRenderer {
       ctx.arc(x + rx - 0.5, y + ry - 0.5, 0.8, 0, TAU);
       ctx.fill();
     }
+    }
+
+    // Hazard stripes on edges facing open floor (corner/edge trim)
 
     // Hazard stripes on edges facing open floor (corner/edge trim)
     const hz = 7;  // strip width
@@ -249,12 +285,23 @@ export class ArenaRenderer {
     ctx.restore();
   }
 
-  // ── Destructible wall: yellow bricks with mortar lines (CA Deluxe) ──
+  // ── Destructible wall: cassa di legno CA originale (fallback: mattoni) ──
   _drawWallDest(ctx, x, y, c, r, hp) {
     const maxHp = CONFIG.WALL_DEST_HP;
     const frac  = hp / maxHp;  // 0=destroyed, 1=full
     const rng = seededRng(c * 4243 + r * 991);
 
+    if (TILE_SPRITES.crate) {
+      // Pavimento sotto la cassa (le casse CA stanno sullo sfondo)
+      this._drawFloor(ctx, x, y, c, r);
+      // Cassa originale Chase Ace, leggera rotazione seeded per varietà
+      const rot = (rng() - 0.5) * 0.12;
+      ctx.save();
+      ctx.translate(x + TS / 2, y + TS / 2);
+      ctx.rotate(rot);
+      ctx.drawImage(TILE_SPRITES.crate, -TS / 2, -TS / 2, TS, TS);
+      ctx.restore();
+    } else {
     const BRICK = '#c8a820';
     const MORTAR = '#4a3a08';
 
@@ -280,6 +327,7 @@ export class ArenaRenderer {
         ctx.fillStyle = 'rgba(0,0,0,0.22)';
         ctx.fillRect(bx + 1, by + bh - 3, bw - 2, 2);
       }
+    }
     }
 
     // Cracks based on damage

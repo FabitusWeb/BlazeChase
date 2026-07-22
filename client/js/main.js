@@ -5,11 +5,15 @@ import { InputManager } from './input.js';
 import { Renderer }     from './renderer.js';
 import { AudioManager } from './audio.js';
 import { startOfflineGame, stopOfflineGame, offlineArenaList, offlineMissionList, OFFLINE_PLAYER_ID } from './offline.js';
+import { loadTileSprites } from './arena.js';
 
 // ── Globals ───────────────────────────────────────────────────
 const net   = new NetClient();
 const input = new InputManager();
 const audio = new AudioManager();
+
+// Tile originali Chase Ace (muri + casse) — carica in background al boot
+loadTileSprites();
 
 let renderer    = null;
 let myId        = null;

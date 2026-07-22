@@ -361,5 +361,67 @@ function updatePistons(pistons, ships, arena, dt) {
   return { damages };
 }
 
+/**
+ * Create a path vehicle (CA PATHVEHICLES): a solid car that loops through
+ * its waypoints at constant speed.
+ */
+function createPathVehicle(def) {
+  return {
+    points: def.points,
+    speed:  def.speed,
+    seg:    0,
+    t:      0,
+    x:      def.points[0].x,
+    y:      def.points[0].y,
+    angle:  0,
+  };
+}
+
+/**
+ * Advance path vehicles one tick (loop through waypoints) and resolve ship
+ * interaction like pistons: moving solid, pushes out, crushes against walls
+ * (half the piston DPS — il veicolo è grosso ma non è un crusher).
+ * Returns { damages: [{ ship, dmg }] } — the caller applies them.
+ */
+function updatePathVehicles(vehicles, ships, arena, dt) {
+  const damages = [];
+  const half  = CONFIG.TILE_SIZE / 2;
+  const R     = CONFIG.SHIP_RADIUS;
+  const crush = CONFIG.HAZARDS.PATHVEHICLE.CRUSH_DPS;
+
+  for (const v of vehicles) {
+    const a = v.points[v.seg];
+    const b = v.points[(v.seg + 1) % v.points.length];
+    const segLen = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    v.t += (v.speed * dt) / segLen;
+    if (v.t >= 1) {
+      v.t = 0;
+      v.seg = (v.seg + 1) % v.points.length;
+    }
+    const nx = a.x + (b.x - a.x) * v.t;
+    const ny = a.y + (b.y - a.y) * v.t;
+    if (nx !== v.x || ny !== v.y) v.angle = Math.atan2(ny - v.y, nx - v.x);
+    v.x = nx;
+    v.y = ny;
+
+    for (const ship of Object.values(ships)) {
+      if (!ship.alive) continue;
+      const dx = ship.x - v.x;
+      const dy = ship.y - v.y;
+      const ox = half + R - Math.abs(dx);
+      const oy = half + R - Math.abs(dy);
+      if (ox <= 0 || oy <= 0) continue;
+      if (ox < oy) { ship.x += Math.sign(dx || 1) * ox; ship.vx = 0; }
+      else         { ship.y += Math.sign(dy || 1) * oy; ship.vy = 0; }
+      if (isSolidAt(arena.tiles, ship.x, ship.y)) {
+        damages.push({ ship, dmg: crush * dt });
+      }
+    }
+  }
+
+  return { damages };
+}
+
 export { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave, updateWormholes,
-                   createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons };
+                   createDoorState, toggleDoorGroup, updateDoors, createPiston, updatePistons,
+                   createPathVehicle, updatePathVehicles };
