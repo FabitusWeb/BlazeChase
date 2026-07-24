@@ -49,6 +49,7 @@
       <input id="solo-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="off">
       <div class="ship-select-label" style="margin-top:16px">CHOOSE YOUR SHIP</div>
       <div class="ship-grid" id="solo-ship-grid"></div>
+      <div id="solo-ship-detail" class="ship-detail"></div>
       <div class="diff-label">MODE</div>
       <div class="diff-buttons">
         <button class="btn diff-btn mode-btn selected" id="mode-skirmish" data-mode="skirmish">SKIRMISH</button>
@@ -59,6 +60,7 @@
       <div id="skirmish-options" class="solo-mode-options">
         <div class="diff-label">ARENA</div>
         <select id="solo-arena-select" class="arena-select"></select>
+        <canvas id="solo-arena-minimap" class="arena-minimap" width="200" height="150"></canvas>
         <div class="diff-label">DIFFICULTY</div>
         <div class="diff-buttons">
           <button class="btn diff-btn" id="diff-easy"   data-diff="easy">EASY</button>
@@ -119,11 +121,13 @@
     <div class="lobby-arena">
       <div class="ship-select-label">ARENA</div>
       <select id="arena-select" class="arena-select"></select>
+      <canvas id="arena-minimap" class="arena-minimap" width="200" height="150"></canvas>
     </div>
 
     <div class="lobby-ships">
       <div class="ship-select-label">CHOOSE YOUR SHIP</div>
       <div class="ship-grid" id="ship-grid"></div>
+      <div id="ship-detail" class="ship-detail"></div>
     </div>
 
     <div class="lobby-players">
@@ -166,6 +170,19 @@
   </div>
 </div>
 
+<!-- ── PAUSE OVERLAY (tasto ESC) ─────────────────────── -->
+<div id="pause-overlay" class="hidden">
+  <div class="controls-panel">
+    <h3>PAUSA</h3>
+    <div class="pause-buttons">
+      <button class="btn btn-primary" id="btn-resume">RIPRENDI</button>
+      <button class="btn btn-secondary" id="btn-pause-controls">COMANDI (H)</button>
+      <button class="btn btn-back" id="btn-quit">ESCI DALLA PARTITA</button>
+    </div>
+    <div class="controls-close">ESC per riprendere</div>
+  </div>
+</div>
+
 <!-- ── GAME ──────────────────────────────────────────── -->
 <div id="screen-playing" class="screen">
   <canvas id="game-canvas"></canvas>
@@ -177,7 +194,7 @@
     <h2 id="scoreboard-title">ROUND OVER</h2>
     <div id="scoreboard-winner" class="winner-banner"></div>
     <table id="scoreboard-table">
-      <thead><tr><th>#</th><th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr></thead>
+      <thead><tr><th>#</th><th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th><th>SHOTS</th><th>ACC%</th></tr></thead>
       <tbody id="scoreboard-body"></tbody>
     </table>
     <div class="scoreboard-buttons">

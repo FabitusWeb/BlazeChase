@@ -8,7 +8,7 @@ const T = CONFIG.TILE;
 const TS = CONFIG.TILE_SIZE;
 
 // Sprite originali CA (caricati da main.js via loadTileSprites)
-const TILE_SPRITES = { wall: null, crate: null };
+const TILE_SPRITES = { wall: null, crate: null, crateCracked: null, starbg: null };
 
 export function loadTileSprites() {
   const load = (src) => new Promise((res) => {
@@ -21,11 +21,15 @@ export function loadTileSprites() {
     } catch { res(null); }
   });
   return Promise.all([
-    load('assets/tiles/wall_yellow2.png'),
-    load('assets/tiles/crate.png'),
-  ]).then(([wall, crate]) => {
+    load('assets/tiles/wall_metal.png'),      // pannelli metallo CA (STATICS)
+    load('assets/tiles/crate.png'),           // scatola gialla CA (STATICS)
+    load('assets/tiles/crate_cracked.png'),   // variante crepata (danno)
+    load('assets/bg/starbackground.png'),     // starfield originale 640x480
+  ]).then(([wall, crate, crateCracked, starbg]) => {
     TILE_SPRITES.wall  = wall;
     TILE_SPRITES.crate = crate;
+    TILE_SPRITES.crateCracked = crateCracked;
+    TILE_SPRITES.starbg = starbg;
   });
 }
 
@@ -113,8 +117,14 @@ export class ArenaRenderer {
     }
   }
 
-  // ── Floor: deep space — starfield with faint nebula tint ──
+  // ── Floor: starfield ORIGINALE CA (640x480 tiled; 640/40=16, 480/40=12
+  //    tile esatte — nessuna cucitura). Fallback: starfield procedurale. ──
   _drawFloor(ctx, x, y, c, r) {
+    if (TILE_SPRITES.starbg) {
+      const img = TILE_SPRITES.starbg;
+      ctx.drawImage(img, x % 640, y % 480, TS, TS, x, y, TS, TS);
+      return;
+    }
     const th = this.theme;
     const rng = seededRng(c * 7919 + r * 104729);
 
@@ -294,12 +304,16 @@ export class ArenaRenderer {
     if (TILE_SPRITES.crate) {
       // Pavimento sotto la cassa (le casse CA stanno sullo sfondo)
       this._drawFloor(ctx, x, y, c, r);
-      // Cassa originale Chase Ace, leggera rotazione seeded per varietà
+      // Cassa originale Chase Ace; sotto il 66% di HP passa alla variante
+      // crepata (come in CA, dove la scatola si sfascia a botte)
+      const img = (frac < 0.66 && TILE_SPRITES.crateCracked)
+        ? TILE_SPRITES.crateCracked : TILE_SPRITES.crate;
+      // Leggera rotazione seeded per varietà
       const rot = (rng() - 0.5) * 0.12;
       ctx.save();
       ctx.translate(x + TS / 2, y + TS / 2);
       ctx.rotate(rot);
-      ctx.drawImage(TILE_SPRITES.crate, -TS / 2, -TS / 2, TS, TS);
+      ctx.drawImage(img, -TS / 2, -TS / 2, TS, TS);
       ctx.restore();
     } else {
     const BRICK = '#c8a820';

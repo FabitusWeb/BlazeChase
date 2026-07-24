@@ -239,6 +239,7 @@ wss.on('connection', (ws) => {
       case 'arena_select': handleArenaSelect(ws, client, msg); break;
       case 'rematch':    handleRematch(ws, client); break;
       case 'play_solo':  handlePlaySolo(ws, client, msg); break;
+      case 'leave':      removeClientFromRoom(ws); break;   // ESC → esci dalla partita
     }
   });
 

@@ -12,9 +12,9 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - Client: canvas 2D vanilla ES modules (`client/`), niente build step; HiDPI adattivo (resScale 1→2, salvato in localStorage `blazechase_rescale`)
 - Shared: `shared/config.js` = unica fonte di verità per le costanti (servita al client da `/js/config.js`)
 - Sim offline: `client/js/sim/` = conversione ESM dei moduli server via `npm run build:sim` (server/build-sim.mjs) — NON editare a mano
-- Test: `node --test test/` in `server/` — **119/119 verdi** al 21/07
+- Test: `node --test test/` in `server/` — **119/119 verdi** al 22/07
 
-## Stato avanzamento (al 21/07/2026)
+## Stato avanzamento (al 22/07/2026)
 
 ### Completato e live
 - **F1-F4**: base multiplayer, 11 armi, 5 navi, powerup, 9 arene handcrafted + picker; single player SKIRMISH / MISSIONS (6) / ENDLESS + leaderboard localStorage (`blazechase_scores`, `blazechase_missions`)
@@ -26,6 +26,9 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - **F9 audio**: WebAudio per tipo arma (11 preset + 4 nuove), engine hum con pitch turbo, allarmi, door/button
 - **F11a arsenale CA**: SNEAKY MISSILE (11), CENTERBLAST (12), STICKY BOMB (13, fuse 1.5s, attacca navi/muri), LAZER TRAP (14, tripwire 15s, `CONFIG.LAZERTRAP`)
 - **F11 stats CA**: `accel` e `turbo` per nave dai valori decodificati (BLAZE turbo 2.0 = Martinez, TITAN 550/200, HORNET 1400/1.9); anche l'AI usa def.accel
+- **F12 UI stile CA**: tema giallo-oro (#FFCC00) su blu notte in tutti i menu/pannelli; minimappa layout nel picker arene (lobby+solo, `client/js/minimap.js`, '?' per random); ship select con sketch grande + 8 barre stats CA (SPEED/TURNSPEED/ACCELERATION/TURBOFACTOR/GRIP/WEIGHT/AMMOSTOCK/SHIELD — le 2 weapon stats CA omesse, arsenale condiviso; `grip`/`weight` in CONFIG solo display); GAME OVER stats complete: `round_end` manda shipId/shotsFired/shotsHit/gameTime, scoreboard con SHOTS+ACC%, solo-end a righe chiave→valore
+- **F12e pausa**: ESC in partita → overlay PAUSA (RIPRENDI/COMANDI/ESCI); in offline il Game si ferma davvero (`pause()`/`resume()` in game.js); server: messaggio `leave` → `removeClientFromRoom`
+- **F14 asset originali CA**: script `server/tools/extract-assets.sh` (ImageMagick, rigenera tutto dai BMP in `/home/coder/chaseace-original/assets/`). Casse = scatola gialla metallica CA + variante crepata sotto 66% HP; muri = pannelli metallo CA; pavimento = starbackground.bmp originale tiled 640x480; esplosioni grandi += sequenza blu EXPLODE.bmp (7 frame additivi); powerup = icone originali POWERUPS.bmp (mapping per effetto, fallback lettere); navi = frame nose-up dai PLAYER*.bmp ruotati a runtime (mapping VIPER→classic P1, HORNET→Lfighter P4, TITAN→hoogb4a P2, PHANTOM→gobel P1, BLAZE→martinez P1), fallback procedurale ovunque; audio: `audio.setShip(myShip)` cablato (WAV sparo/motore originali già in assets/audio)
 
 ### Riferimenti (`.refs-tmp/`, gitignored)
 - `MECCANICA.md` — BIBBIA: formato CHZ_RS2, FANCYSMANCY (stats navi), ENEMYIQ (AI), formato `.lev` (testo), corsi, 36 powerup POW*
@@ -34,11 +37,10 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - Asset originali estratti in `/home/coder/chaseace-original/assets/` (65 BMP + 12 WAV) — riferimento, NON nel repo tranne i 4 tile committati
 
 ### Roadmap prossime fasi
-- **F12 — UI stile CA**: menu giallo/blu, minimappa nel picker arene, ship select 9 stats + sketch, GAME OVER stats complete
 - **F13 — Arene varietà**: canali d'acqua/fratture, stanze tema circuito (da refs clean-room)
-- **F14 — Più asset originali**: navi dai sprite sheet originali (PLAYER1-4.bmp), esplosioni da EXPLODE.bmp, powerup da POWERUPS.bmp, starbackground.bmp
 - **F15 — AI CA**: comportamenti dai 26 .NMY (skill/reaction/vision/range da ENEMYIQ), nemici che spawnano nemici (missile→MISSILE2)
 - **F16 — Più armi CA**: GAZ, ARTILLERY, MICRO BLASTER, BOOMERANG, TIME BLAST + powerup DEFLECTOR/HOMING TURRET/MINI TURRETS
+- **F14b — rimanenze asset**: rotazioni complete navi (layout radiale sheet da decodificare), edifici da BUILDINGS.bmp, tile bordo/angolo autotile, bottoni trigger originali, suoni esplosioni/allarmi originali (non estratti: servono dai .NMY)
 - Infra (fuori repo): uptime monitor prod, testo mail Biodome → PERMISSION.md
 
 ## Regole operative

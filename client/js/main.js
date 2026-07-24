@@ -6,6 +6,9 @@ import { Renderer }     from './renderer.js';
 import { AudioManager } from './audio.js';
 import { startOfflineGame, stopOfflineGame, offlineArenaList, offlineMissionList, OFFLINE_PLAYER_ID } from './offline.js';
 import { loadTileSprites } from './arena.js';
+import { loadFXSprites }   from './fx.js';
+import { drawArenaMinimap } from './minimap.js';
+import { drawShipPreview, loadShipSprites } from './ships.js';
 
 // ── Globals ───────────────────────────────────────────────────
 const net   = new NetClient();
@@ -14,6 +17,8 @@ const audio = new AudioManager();
 
 // Tile originali Chase Ace (muri + casse) — carica in background al boot
 loadTileSprites();
+loadFXSprites();     // frame esplosione blu + icone powerup CA
+loadShipSprites();   // sprite navi originali CA (F14)
 
 let renderer    = null;
 let myId        = null;
@@ -169,12 +174,13 @@ window.addEventListener('DOMContentLoaded', () => {
     try { handleGameEvent(msg); } catch (e) { console.error('[BLAZE] event handler crash:', e, 'msg:', msg); }
   });
 
-  // Controls overlay: H toggles, ESC closes
+  // Controls overlay: H toggles, ESC closes / apre la pausa in partita
   window.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') {
       document.getElementById('controls-overlay')?.classList.toggle('hidden');
     } else if (e.key === 'Escape') {
       document.getElementById('controls-overlay')?.classList.add('hidden');
+      if (state === STATES.PLAYING) setPaused(!_paused);
     }
   });
 
@@ -346,11 +352,37 @@ function populateArenaSelects() {
       sel.appendChild(opt);
     }
   }
+  refreshArenaMinimap('arena-select', 'arena-minimap');
+  refreshArenaMinimap('solo-arena-select', 'solo-arena-minimap');
 }
 
-function buildShipGrid() {
-  const grid = document.getElementById('ship-grid');
-  grid.innerHTML = '';
+// F12b: minimappa del layout accanto al picker ('random' → punto interrogativo)
+function refreshArenaMinimap(selectId, canvasId) {
+  const sel = document.getElementById(selectId);
+  const cvs = document.getElementById(canvasId);
+  if (sel && cvs) drawArenaMinimap(cvs, sel.value);
+}
+
+// ── Ship select stile CA (F12c) ──────────────────────────────
+// Le 8 stats nave della ship-select CA (da languages.txt: SPEED, TURNSPEED,
+// ACCELERATION, TURBOFACTOR, GRIP, WEIGHT, AMMOSTOCK, SHIELD). CA mostra
+// anche SHOTDAMAGE/SHOTSPEED, ma lì ogni nave ha un'arma propria — qui
+// l'arsenale è condiviso, quindi si omettono. Ogni get() restituisce 0..1.
+const SHIP_STAT_BARS = [
+  { label: 'SPEED',        get: s => s.speed / 400 },
+  { label: 'TURNSPEED',    get: s => s.turn / 8 },
+  { label: 'ACCELERATION', get: s => s.accel / 1500 },
+  { label: 'TURBOFACTOR',  get: s => s.turbo / 2.5 },
+  { label: 'GRIP',         get: s => (s.grip ?? 100) / 150 },
+  { label: 'WEIGHT',       get: s => (s.weight ?? 0) / 100 },
+  { label: 'AMMOSTOCK',    get: s => s.ammo / 300 },
+  { label: 'SHIELD',       get: s => s.shield / 250 },
+];
+
+// Griglia di card + pannello dettaglio (sketch grande + barre) condiviso
+// tra lobby e single player. onSelect(shipId) opzionale (es. notifica server).
+function buildShipSelect(gridEl, detailEl, onSelect) {
+  gridEl.innerHTML = '';
   CONFIG.SHIPS.forEach((ship, i) => {
     const card = document.createElement('div');
     card.className = 'ship-card' + (i === myShip ? ' selected' : '');
@@ -366,25 +398,69 @@ function buildShipGrid() {
     name.textContent = ship.name;
     card.appendChild(name);
 
-    const stats = document.createElement('div');
-    stats.className = 'ship-stats';
-    stats.innerHTML = `SPD ${ship.speed}<br>SHD ${ship.shield}<br>AMO ${ship.ammo}`;
-    card.appendChild(stats);
-
     card.addEventListener('click', () => {
       myShip = i;
-      net.send({ type: 'ship_select', ship: i });
-      document.querySelectorAll('.ship-card').forEach(c => c.classList.remove('selected'));
+      audio.setShip(i);   // F9: sparo/motore WAV originali della nave scelta
+      gridEl.querySelectorAll('.ship-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
+      renderShipDetail(detailEl, i);
+      if (onSelect) onSelect(i);
     });
 
-    grid.appendChild(card);
-
-    // Draw ship preview
-    import('./ships.js').then(({ drawShipPreview }) => {
-      drawShipPreview(cvs.getContext('2d'), i, 30, 30, 0);
-    });
+    gridEl.appendChild(card);
+    drawShipPreview(cvs.getContext('2d'), i, 30, 30, 0);
   });
+  renderShipDetail(detailEl, myShip);
+}
+
+// Sketch grande della nave + barre stats (pannello sotto la griglia)
+function renderShipDetail(el, shipId) {
+  if (!el) return;
+  const ship = CONFIG.SHIPS[shipId] || CONFIG.SHIPS[0];
+  el.innerHTML = '';
+
+  const cvs = document.createElement('canvas');
+  cvs.width = 110; cvs.height = 110;
+  el.appendChild(cvs);
+
+  const side = document.createElement('div');
+  side.className = 'ship-detail-side';
+
+  const name = document.createElement('div');
+  name.className = 'ship-detail-name';
+  name.style.color = ship.color;
+  name.textContent = ship.name;
+  side.appendChild(name);
+
+  const bars = document.createElement('div');
+  bars.className = 'ship-stats-bars';
+  for (const st of SHIP_STAT_BARS) {
+    const v = Math.max(0, Math.min(1, st.get(ship)));
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    row.innerHTML = `
+      <span class="stat-label">${st.label}</span>
+      <span class="stat-bar"><span class="stat-fill" style="width:${Math.round(v * 100)}%"></span></span>
+    `;
+    bars.appendChild(row);
+  }
+  side.appendChild(bars);
+  el.appendChild(side);
+
+  // Sketch ~2.3× rispetto al disegno in-game
+  const ctx = cvs.getContext('2d');
+  ctx.save();
+  ctx.scale(2.3, 2.3);
+  drawShipPreview(ctx, shipId, 55 / 2.3, 58 / 2.3, 0);
+  ctx.restore();
+}
+
+function buildShipGrid() {
+  buildShipSelect(
+    document.getElementById('ship-grid'),
+    document.getElementById('ship-detail'),
+    (i) => net.send({ type: 'ship_select', ship: i }),
+  );
 }
 
 function updateLobbyUI(lobby) {
@@ -415,6 +491,7 @@ function updateLobbyUI(lobby) {
   if (arenaSelect) {
     arenaSelect.value = lobby.arenaId || 'random';
     arenaSelect.disabled = lobby.hostId !== myId;
+    refreshArenaMinimap('arena-select', 'arena-minimap');
   }
 
   // Reflect own ready state on the toggle button
@@ -442,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('arena-select')?.addEventListener('change', (e) => {
+    refreshArenaMinimap('arena-select', 'arena-minimap');
     net.send({ type: 'arena_select', arenaId: e.target.value });
   });
 
@@ -525,39 +603,11 @@ function selectSoloGameMode(mode) {
 let selectedSoloDiff = 'easy';
 
 function buildSoloShipGrid() {
-  const grid = document.getElementById('solo-ship-grid');
-  grid.innerHTML = '';
-  CONFIG.SHIPS.forEach((ship, i) => {
-    const card = document.createElement('div');
-    card.className = 'ship-card' + (i === myShip ? ' selected' : '');
-    card.dataset.shipId = i;
-
-    const cvs = document.createElement('canvas');
-    cvs.width = 60; cvs.height = 60;
-    card.appendChild(cvs);
-
-    const name = document.createElement('div');
-    name.className = 'ship-name';
-    name.style.color = ship.color;
-    name.textContent = ship.name;
-    card.appendChild(name);
-
-    const stats = document.createElement('div');
-    stats.className = 'ship-stats';
-    stats.innerHTML = `SPD ${ship.speed}<br>SHD ${ship.shield}<br>AMO ${ship.ammo}`;
-    card.appendChild(stats);
-
-    card.addEventListener('click', () => {
-      myShip = i;
-      document.querySelectorAll('#solo-ship-grid .ship-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-    });
-
-    grid.appendChild(card);
-    import('./ships.js').then(({ drawShipPreview }) => {
-      drawShipPreview(cvs.getContext('2d'), i, 30, 30, 0);
-    });
-  });
+  buildShipSelect(
+    document.getElementById('solo-ship-grid'),
+    document.getElementById('solo-ship-detail'),
+    null,   // solo: la nave scelta si manda col payload play_solo
+  );
 }
 
 function setupSoloUI() {
@@ -579,6 +629,11 @@ function setupSoloUI() {
   // Select easy by default
   document.getElementById('diff-easy')?.classList.add('selected');
   document.getElementById('diff-hint').textContent = DIFF_HINTS.easy;
+
+  // Minimappa arena anche nel picker solo (F12b)
+  document.getElementById('solo-arena-select')?.addEventListener('change', () => {
+    refreshArenaMinimap('solo-arena-select', 'solo-arena-minimap');
+  });
 
   document.getElementById('btn-solo-play')?.addEventListener('click', () => {
     const arenaId = document.getElementById('solo-arena-select')?.value || 'random';
@@ -740,17 +795,17 @@ function buildLeaderboard(diff) {
     tr.innerHTML = isEndless ? `
       <td>${i + 1}</td>
       <td>${esc(s.name)}</td>
-      <td style="color:#FF6600">${s.score}</td>
+      <td style="color:#FFCC00">${s.score}</td>
       <td>${s.wave || 1}</td>
       <td>${s.kills}</td>
-      <td style="color:#666;font-size:12px">${date}</td>
+      <td style="color:#5a6a94;font-size:12px">${date}</td>
     ` : `
       <td>${i + 1}</td>
       <td>${esc(s.name)}${s.victory ? ' ✓' : ''}</td>
-      <td style="color:#FF6600">${s.score}</td>
+      <td style="color:#FFCC00">${s.score}</td>
       <td>${s.kills}</td>
       <td>${s.deaths}</td>
-      <td style="color:#666;font-size:12px">${date}</td>
+      <td style="color:#5a6a94;font-size:12px">${date}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -765,32 +820,39 @@ function showSoloEnd(msg) {
 
   if (msg.victory) {
     title.textContent  = 'VICTORY!';
-    title.style.color  = '#FFD700';
+    title.style.color  = '#FFCC00';
     banner.textContent = mode === 'mission'
       ? `🏆 Mission complete: ${msg.missionName || ''}`
       : '🏆 All enemies defeated!';
   } else {
     title.textContent  = 'GAME OVER';
-    title.style.color  = '#FF4444';
+    title.style.color  = '#FF6655';
     banner.textContent = mode === 'endless' ? 'The waves got you.'
                       : mode === 'mission' ? `Mission failed: ${msg.missionName || ''}`
                       : 'You ran out of lives.';
   }
 
+  // Righe chiave→valore stile schermata risultati CA (F12d)
   const diffName = (msg.difficulty || 'easy').toUpperCase();
   const mm = Math.floor((msg.gameTime || 0) / 60);
   const ss = String((msg.gameTime || 0) % 60).padStart(2, '0');
   const hitPct = msg.shotsFired > 0 ? Math.round(100 * (msg.shotsHit || 0) / msg.shotsFired) : 0;
-  let html = `DIFFICULTY: ${diffName}<br>`;
-  if (mode === 'endless') html += `WAVE REACHED: ${msg.wave || 1}<br>`;
-  html += `
-    TOTAL GAME TIME: ${mm}:${ss}<br>
-    SHOTS FIRED: ${msg.shotsFired || 0}<br>
-    KILLS: ${msg.kills || 0}  •  DEATHS: ${msg.deaths || 0}<br>
-    HIT PERCENTAGE: ${hitPct}%<br>
-    SCORE: <span style="color:#FF6600;font-size:20px">${msg.score || 0}</span>
-  `;
-  stats.innerHTML = html;
+  const rows = [
+    ['MODE', mode.toUpperCase()],
+    ['DIFFICULTY', diffName],
+  ];
+  if (mode === 'endless') rows.push(['WAVE REACHED', msg.wave || 1]);
+  rows.push(
+    ['TOTAL GAME TIME', `${mm}:${ss}`],
+    ['SHOTS FIRED', msg.shotsFired || 0],
+    ['HIT PERCENTAGE', `${hitPct}%`],
+    ['KILLS', msg.kills || 0],
+    ['DEATHS', msg.deaths || 0],
+  );
+  stats.innerHTML = rows.map(([k, v]) =>
+    `<div class="stat-line"><span class="k">${k}</span><span class="v">${v}</span></div>`
+  ).join('') +
+  `<div class="stat-line"><span class="k">SCORE</span><span class="v hl">${msg.score || 0}</span></div>`;
 }
 
 // ── Game loop ─────────────────────────────────────────────────
@@ -798,6 +860,38 @@ let _pendingStart = false;
 let _soloTimeout  = null;
 let _fpsFrames    = 0;
 let _fpsTime      = 0;
+let _paused       = false;   // overlay ESC aperto (F12e)
+
+// ESC: overlay pausa. In offline la sim locale si ferma davvero (pause/resume
+// del Game); online la partita va avanti — la pausa è solo un menu.
+function setPaused(on) {
+  _paused = on;
+  document.getElementById('pause-overlay')?.classList.toggle('hidden', !on);
+  if (offlineGame) { on ? offlineGame.pause() : offlineGame.resume(); }
+  if (on) audio.engineSet(false, false);
+}
+
+function quitMatch() {
+  const wasSolo = soloMode;
+  setPaused(false);
+  stopGameLoop();
+  if (offlineGame) { stopOfflineGame(); offlineGame = null; }
+  else net.send({ type: 'leave' });
+  soloMode = false;
+  lastSoloParams = null;   // uscita volontaria: niente resume/rejoin automatico
+  lastJoinInfo = null;
+  gameState = null;
+  arenaData = null;
+  setState(wasSolo ? STATES.SOLO : STATES.MENU);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-resume')?.addEventListener('click', () => setPaused(false));
+  document.getElementById('btn-pause-controls')?.addEventListener('click', () => {
+    document.getElementById('controls-overlay')?.classList.remove('hidden');
+  });
+  document.getElementById('btn-quit')?.addEventListener('click', quitMatch);
+});
 
 net.on('countdown', (msg) => {
   if (msg.value === 0) {
@@ -823,6 +917,7 @@ function startGame() {
   renderer.onNewBullet = (b) => audio.weaponFire(b.weapon);   // F9: sparo per tipo arma
   input.start();
   audio.init();
+  audio.setShip(myShip);   // WAV originali della nave scelta (F9)
 
   lastFrameTime = performance.now();
   rafId = requestAnimationFrame(gameLoop);
@@ -914,6 +1009,8 @@ function stopGameLoop() {
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   input.stop();
   audio.engineSet(false, false);   // spegni l'engine hum
+  _paused = false;
+  document.getElementById('pause-overlay')?.classList.add('hidden');
 }
 
 // ── Game events ───────────────────────────────────────────────
@@ -996,20 +1093,29 @@ function addKillFeed(msg) {
 function showScoreboard(msg) {
   const winner = msg.winnerName || 'Unknown';
   document.getElementById('scoreboard-winner').textContent = `🏆 ${winner} WINS!`;
-  document.getElementById('scoreboard-title').textContent = 'ROUND OVER';
+
+  // Tempo totale di round nel titolo (GAME OVER stile CA)
+  const mm = Math.floor((msg.gameTime || 0) / 60);
+  const ss = String((msg.gameTime || 0) % 60).padStart(2, '0');
+  document.getElementById('scoreboard-title').textContent =
+    msg.gameTime ? `ROUND OVER — ${mm}:${ss}` : 'ROUND OVER';
 
   const tbody = document.getElementById('scoreboard-body');
   tbody.innerHTML = '';
   const sorted = [...msg.scores].sort((a, b) => b.kills - a.kills);
   sorted.forEach((s, i) => {
     const kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(1) : s.kills.toFixed(1);
+    const acc = s.shotsFired > 0 ? Math.round(100 * (s.shotsHit || 0) / s.shotsFired) : 0;
+    const shipDef = CONFIG.SHIPS[s.shipId ?? 0] || CONFIG.SHIPS[0];
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td>${esc(s.name)}</td>
+      <td><span style="color:${shipDef.color}">${esc(s.name)}</span> <span style="color:#8899bb;font-size:11px">${shipDef.name}</span></td>
       <td>${s.kills}</td>
       <td>${s.deaths}</td>
       <td>${kd}</td>
+      <td>${s.shotsFired || 0}</td>
+      <td>${acc}%</td>
     `;
     tbody.appendChild(tr);
   });

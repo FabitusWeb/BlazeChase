@@ -184,6 +184,20 @@ class Game {
     }
   }
 
+  /** Pausa/ripresa del solo loop (usato dalla modalità offline per ESC). */
+  pause() {
+    if (this._intervalId) {
+      clearInterval(this._intervalId);
+      this._intervalId = null;
+    }
+  }
+
+  resume() {
+    if (!this.running || this._intervalId) return;
+    this._lastTime = process.hrtime.bigint();   // evita un dt gigante al resume
+    this._intervalId = setInterval(() => this._tick(), TICK_MS);
+  }
+
   receiveInput(playerId, msg) {
     if (!this.inputBuffer[playerId]) return;
     const keys = msg.keys || {};
@@ -812,13 +826,19 @@ class Game {
     for (const ship of Object.values(this.ships)) {
       if (ship.kills >= CONFIG.KILL_TARGET) {
         this.roundOver = true;
+        // Stats complete per la schermata GAME OVER stile CA (F12):
+        // nave usata, colpi sparati/andati a segno, tempo totale di round
         const scores = Object.values(this.ships).map(s => ({
           id: s.id, name: s.name, kills: s.kills, deaths: s.deaths,
+          shipId:    s.shipId,
+          shotsFired: s.shotsFired || 0,
+          shotsHit:   s.shotsHit   || 0,
         }));
         this.broadcast({
           type:     'round_end',
           winnerId: ship.id,
           winnerName: ship.name,
+          gameTime: Math.round((Date.now() - this._startTime) / 1000),
           scores,
         });
         this._endTimeout = setTimeout(() => {

@@ -4,6 +4,40 @@
 
 const TAU = Math.PI * 2;
 
+// ── Sprite originali CA (caricati da main.js via loadFXSprites) ─────
+// Frame esplosione blu da statics_chz__EXPLODE.bmp (frame 1-7: il 0 è una
+// scheggia singola) e icone powerup da statics_chz__POWERUPS.bmp.
+// Fallback: se non caricati restano le versioni procedurali.
+const EXPLODE_FRAMES = [];
+const POWERUP_ICONS  = {};   // effect → Image
+
+// Frame/sec dell'animazione esplosione CA
+const EXPLODE_FPS = 10;
+
+export function loadFXSprites() {
+  const load = (src) => new Promise((res) => {
+    if (typeof Image === 'undefined') return res(null);   // Node/test env
+    try {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    } catch { res(null); }
+  });
+  const jobs = [];
+  for (let i = 1; i <= 7; i++) {
+    jobs.push(load(`assets/fx/explode_${i}.png`).then(img => {
+      if (img) EXPLODE_FRAMES[i - 1] = img;
+    }));
+  }
+  for (const def of (typeof CONFIG !== 'undefined' ? CONFIG.POWERUPS : [])) {
+    jobs.push(load(`assets/powerups/${def.effect}.png`).then(img => {
+      if (img) POWERUP_ICONS[def.effect] = img;
+    }));
+  }
+  return Promise.all(jobs);
+}
+
 export class FXSystem {
   constructor(arenaRenderer) {
     this.arena    = arenaRenderer;  // for addBurnMark / addSkidMark
@@ -13,6 +47,7 @@ export class FXSystem {
     this.flashes    = [];   // { x, y, radius, maxRadius, life, maxLife, color }
     this.fireballs  = [];   // { x, y, vx, vy, radius, maxRadius, life, maxLife }
     this.smoke      = [];   // { x, y, vx, vy, size, life, maxLife, tint, swirl }
+    this.sprites    = [];   // { x, y, life, maxLife, size } — animazioni a frame CA (esplosione blu)
 
     this.shakeX   = 0;
     this.shakeY   = 0;
@@ -215,6 +250,11 @@ export class FXSystem {
     this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 70, life: 0.16, maxLife: 0.16, color: '#FFFFFF' });
     this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 45, life: 0.24, maxLife: 0.24, color: '#FF8800' });
 
+    // Esplosione a energia blu ORIGINALE CA (EXPLODE.bmp) sopra i nastri
+    if (EXPLODE_FRAMES.length > 0) {
+      this.sprites.push({ x: wx, y: wy, life: 0.7, maxLife: 0.7, size: 110 });
+    }
+
     // Core glow (small) + MANY long jagged flame ribbons spiralling out
     this._spawnFireballs(wx, wy, 5, 28, 14);
     const numRibbons = 16 + Math.floor(Math.random() * 5);
@@ -365,6 +405,9 @@ export class FXSystem {
       f.radius = f.maxRadius * (1 - f.life / f.maxLife);
       return true;
     });
+
+    // Sprite animations (esplosione blu CA)
+    this.sprites = this.sprites.filter(s => { s.life -= dt; return s.life > 0; });
   }
 
   draw(ctx, camX, camY) {
@@ -404,6 +447,23 @@ export class FXSystem {
     }
 
     ctx.restore();
+
+    // ── Sprite CA: esplosione blu a frame (additiva, sopra flash/ribbons) ──
+    if (this.sprites.length > 0 && EXPLODE_FRAMES.length > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const s of this.sprites) {
+        const frac = 1 - s.life / s.maxLife;   // 0 → 1 nel tempo
+        const fi = Math.min(EXPLODE_FRAMES.length - 1,
+                            Math.floor(frac * EXPLODE_FRAMES.length));
+        const img = EXPLODE_FRAMES[fi];
+        if (!img) continue;
+        const sx = s.x - camX;
+        const sy = s.y - camY;
+        ctx.drawImage(img, sx - s.size / 2, sy - s.size / 2, s.size, s.size);
+      }
+      ctx.restore();
+    }
 
     // ── Jagged flame ribbons (polyline, ragged) ──
     for (const r of this.ribbons) {
@@ -864,13 +924,19 @@ export class FXSystem {
       ctx.arc(sx, sy, 10, 0, TAU);
       ctx.fill();
 
-      // Icon letter
-      ctx.fillStyle = color;
-      ctx.font      = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 6;
-      ctx.fillText(def.icon, sx, sy);
+      // Icona ORIGINALE CA (POWERUPS.bmp) se caricata, altrimenti lettera
+      const icon = POWERUP_ICONS[def.effect];
+      if (icon) {
+        ctx.shadowBlur = 6;
+        ctx.drawImage(icon, sx - 12, sy - 12, 24, 24);
+      } else {
+        ctx.fillStyle = color;
+        ctx.font      = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 6;
+        ctx.fillText(def.icon, sx, sy);
+      }
 
       ctx.restore();
     }

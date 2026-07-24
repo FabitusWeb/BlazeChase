@@ -1,6 +1,29 @@
-// client/js/ships.js — Procedural cartoon ship drawing
+// client/js/ships.js — Procedural cartoon ship drawing + sprite originali CA
 
 const TAU = Math.PI * 2;
+
+// ── Sprite originali CA (F14): frame "muso in su" dai PLAYER*.bmp originali,
+// ruotati a runtime. Nome file = nome nave lowercase (assets/ships/).
+// Fallback: se non caricati (o in Node/test) resta il disegno procedurale.
+const SHIP_SPRITES = [];   // shipId → Image | null
+const SHIP_SPRITE_SIZE = 38;   // px di disegno in gioco (SHIP_RADIUS=14)
+
+export function loadShipSprites() {
+  const load = (src) => new Promise((res) => {
+    if (typeof Image === 'undefined') return res(null);   // Node/test env
+    try {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    } catch { res(null); }
+  });
+  const jobs = (typeof CONFIG !== 'undefined' ? CONFIG.SHIPS : []).map((def, i) =>
+    load(`assets/ships/${def.name.toLowerCase()}.png`).then(img => {
+      SHIP_SPRITES[i] = img;
+    }));
+  return Promise.all(jobs);
+}
 
 // Ship polygon definitions (in local space, nose pointing up = -Y)
 // Each ship: { body: [[x,y],...], wings: [[x,y],...], cockpit: {cx,cy,rx,ry} }
@@ -53,15 +76,59 @@ export function drawShip(ctx, shipData, def, time, camX, camY) {
 
   if (!shipData.alive) return;
 
-  const shape = SHIP_SHAPES[shipData.shipId || 0] || SHIP_SHAPES[0];
-  const color  = def.color;
-  const accent = def.accent;
-  const angle  = shipData.angle + Math.PI / 2;  // nose points "up" in local space → +Y in world
+  const sprite = SHIP_SPRITES[shipData.shipId || 0];
 
   // Blink when invulnerable (respawn protection)
   if (shipData.invulnerable) {
     if (Math.floor(time * 8) % 2 === 0) return;
   }
+
+  // ── Sprite originale CA (se caricato): bitmap ruotato + effetti ──
+  if (sprite) {
+    const angle = shipData.angle + Math.PI / 2;   // sprite: muso in su
+    const hitFlash = (shipData.hitFlashTimer || 0) > 0;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle);
+    if (hitFlash && 'filter' in ctx) ctx.filter = 'brightness(2.5)';
+    const S = SHIP_SPRITE_SIZE;
+    ctx.drawImage(sprite, -S / 2, -S / 2, S, S);
+    ctx.restore();
+
+    // Anello scudo sul colpo subito
+    if (hitFlash) {
+      const prog = Math.min(1, shipData.hitFlashTimer / 0.15);
+      const ringR = CONFIG.SHIP_RADIUS * 1.8 * (1 + (1 - prog) * 0.5);
+      ctx.save();
+      ctx.globalAlpha = prog * 0.8;
+      ctx.strokeStyle = '#88CCFF';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#88CCFF';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, ringR, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Nome sopra la nave
+    ctx.save();
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(shipData.name || '', sx, sy - CONFIG.SHIP_RADIUS - 6);
+    ctx.restore();
+    return;
+  }
+
+  // ── Fallback procedurale (sprite non caricato) ──
+  const shape = SHIP_SHAPES[shipData.shipId || 0] || SHIP_SHAPES[0];
+  const color  = def.color;
+  const accent = def.accent;
+  const angle  = shipData.angle + Math.PI / 2;  // nose points "up" in local space → +Y in world
 
   ctx.save();
   ctx.translate(sx, sy);
@@ -263,6 +330,17 @@ function _drawEngine(ctx, eng, color, alpha, scale, t) {
  * Draw a small ship preview for the lobby ship selection UI.
  */
 export function drawShipPreview(ctx, shipId, cx, cy, time) {
+  const sprite = SHIP_SPRITES[shipId];
+  if (sprite) {
+    // Sprite originale CA (muso in su): stesso orientamento del procedurale
+    const S = SHIP_SPRITE_SIZE;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(sprite, -S / 2, -S / 2, S, S);
+    ctx.restore();
+    return;
+  }
   const shape = SHIP_SHAPES[shipId] || SHIP_SHAPES[0];
   const def   = CONFIG.SHIPS[shipId] || CONFIG.SHIPS[0];
   ctx.save();
