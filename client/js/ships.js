@@ -6,7 +6,7 @@ const TAU = Math.PI * 2;
 // ruotati a runtime. Nome file = nome nave lowercase (assets/ships/).
 // Fallback: se non caricati (o in Node/test) resta il disegno procedurale.
 const SHIP_SPRITES = [];   // shipId → Image | null
-const SHIP_SPRITE_SIZE = 38;   // px di disegno in gioco (SHIP_RADIUS=14)
+const SHIP_SPRITE_SIZE = 40;   // px di disegno in gioco (SHIP_RADIUS=14)
 
 export function loadShipSprites() {
   const load = (src) => new Promise((res) => {

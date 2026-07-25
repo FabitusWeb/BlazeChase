@@ -137,7 +137,7 @@ export class Renderer {
     this.fx.drawHazards(ctx, state, camX, camY, this.time);
 
     // ── Bullets ──────────────────────────────────────────────
-    this.fx.drawBullets(ctx, state.bullets || [], camX, camY);
+    this.fx.drawBullets(ctx, state.bullets || [], camX, camY, this.time);
 
     // ── Ships ────────────────────────────────────────────────
     for (const p of state.players) {

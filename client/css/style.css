@@ -1,6 +1,25 @@
-/* ── BLAZE CHASE UI — tema Chase Ace: giallo su blu spazio (F12) ──
-   Palette CA: testi/bordi giallo oro (#FFCC00) su pannelli blu notte
-   (#0d1533 / #060a1c), accenti azzurro acciaio (#8a9aac).            */
+/* ── BLAZE CHASE UI — F18 identità proprietaria (handbook set 01) ──
+   Direzione A "Industrial 90s": giallo oro #FFCC00 su blu notte,
+   forme spigolose (ZERO border-radius), morbidezza solo nei glow.
+   Firma: doppio chevron di fiamma (oro davanti, arancio dietro).
+   Tipografia: Archivo 800 italic titoli / 700 uppercase voci,
+   IBM Plex Mono 600 numeri. Griglia 8px.                              */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('../assets/fonts/Archivo-700.woff2') format('woff2');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('../assets/fonts/Archivo-800i.woff2') format('woff2');
+  font-weight: 800; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/IBMPlexMono-600.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
 
 /* ── Reset & Base ──────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -9,9 +28,19 @@ html, body {
   width: 100%; height: 100%;
   background: #060a1c;
   color: #e8ecff;
-  font-family: 'Courier New', 'Consolas', monospace;
+  font-family: 'Archivo', 'Courier New', monospace;
+  font-weight: 700;
   overflow: hidden;
   user-select: none;
+}
+
+/* Doppio chevron di fiamma (firma) — oro davanti, arancio dietro */
+.chevron-sig {
+  display: inline-block;
+  width: 22px; height: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M2 2 L9 11 L2 20' stroke='%23FF6600' stroke-width='3.5' fill='none'/%3E%3Cpath d='M9 2 L16 11 L9 20' stroke='%23FFCC00' stroke-width='3.5' fill='none'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
 }
 
 /* ── Screens ───────────────────────────────────────────────── */
@@ -24,7 +53,7 @@ html, body {
 }
 .screen.active { display: flex; }
 
-/* ── Menu ──────────────────────────────────────────────────── */
+/* ── Menu (a bandiera a sinistra: starfield visibile a destra) ── */
 .menu-bg {
   position: absolute;
   inset: 0;
@@ -32,101 +61,123 @@ html, body {
 }
 #menu-bg-canvas {
   width: 100%; height: 100%;
-  opacity: 0.35;
+  opacity: 0.45;
 }
 
-.menu-center {
-  position: relative;
+.menu-left {
+  position: absolute;
+  left: 40px;                  /* margine esterno griglia */
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 24px;
 }
 
-.game-title {
-  font-size: 80px;
-  font-weight: 900;
-  line-height: 0.9;
-  text-align: center;
-  letter-spacing: 6px;
+.menu-tag {
+  font-size: 13px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #e8ecff;
-  text-shadow:
-    0 0 20px #3a5aff,
-    0 0 60px #2a3a8caa,
-    0 0 120px #1a245055;
+  color: #8a9aac;
+}
+
+.game-title {
+  font-size: 92px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 0.86;           /* le due parole si toccano: blocco solido */
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  color: #e8ecff;              /* BLAZE */
+  text-align: left;
+  text-shadow: 0 0 24px #2a3a8c66;
 }
 .game-title span {
-  color: #FFCC00;
-  text-shadow:
-    0 0 20px #fff8d0,
-    0 0 40px #FFCC00;
+  color: #FFCC00;              /* CHASE */
+  text-shadow: 0 0 24px #FFCC0055;
 }
 
 .menu-buttons {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  width: 280px;
+  gap: 12px;
+  width: 300px;                /* larghezza fissa bottoni */
 }
 
-/* ── Buttons ───────────────────────────────────────────────── */
+/* ── Buttons (h52, testo 18/700/0.06em, padding riservato 46px) ── */
 .btn {
-  padding: 14px 28px;
+  position: relative;
+  height: 52px;
+  padding: 0 20px 0 46px;      /* 46px: il doppio chevron non sposta il testo */
   font-family: inherit;
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-align: left;
   border: none;
   cursor: pointer;
-  border-radius: 2px;         /* angoli quasi vivi, stile DOS/CA */
-  transition: transform 0.08s, box-shadow 0.08s;
+  transition: background 0.1s, box-shadow 0.1s;
 }
-.btn:hover  { transform: scale(1.04); }
-.btn:active { transform: scale(0.97); }
+/* Il focus cambia fondo e mostra il doppio chevron nel padding */
+.btn::before {
+  content: '';
+  position: absolute;
+  left: 16px; top: 50%;
+  transform: translateY(-50%);
+  width: 22px; height: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M2 2 L9 11 L2 20' stroke='%23FF6600' stroke-width='3.5' fill='none'/%3E%3Cpath d='M9 2 L16 11 L9 20' stroke='%23FFCC00' stroke-width='3.5' fill='none'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.btn:hover::before, .btn.selected::before { opacity: 1; }
 
 .btn-primary {
   background: #FFCC00;
   color: #16204a;
-  box-shadow: 0 0 16px #FFCC0088, inset 0 -3px 0 #b88900;
+  box-shadow: 0 0 16px #FFCC0066;
 }
-.btn-primary:hover  { background: #FFDD44; box-shadow: 0 0 24px #FFCC00bb, inset 0 -3px 0 #b88900; }
+.btn-primary:hover { background: #FFDD44; box-shadow: 0 0 24px #FFCC00aa; }
 
 .btn-secondary {
-  background: #0d153366;
-  color: #FFCC00;
-  border: 2px solid #FFCC00;
+  background: rgba(13,21,51,0.6);   /* semitrasparente: lo starfield passa */
+  color: #e8ecff;
+  border: 2px solid #3a4a5c;
 }
-.btn-secondary:hover { background: #FFCC0022; }
+.btn-secondary:hover { border-color: #FFCC00; color: #FFCC00; }
 
 .btn-back {
   background: transparent;
-  color: #8899bb;
+  color: #8a9aac;
   border: 1px solid #33415e;
   font-size: 14px;
-  padding: 10px 20px;
+  height: 44px;
 }
-.btn-back:hover { color: #ccd6ee; border-color: #8899bb; }
+.btn-back:hover { color: #e8ecff; border-color: #8a9aac; }
+
+.btn:disabled, .btn.disabled { opacity: 0.4; cursor: default; }
 
 /* ── Forms ─────────────────────────────────────────────────── */
 .join-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 280px;
+  width: 300px;
 }
 .join-form input {
   padding: 12px 16px;
-  font-family: inherit;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 18px;
   letter-spacing: 4px;
   text-transform: uppercase;
   background: #0d1533;
-  border: 2px solid #33415e;
+  border: 2px solid #16203c;
   color: #e8ecff;
-  border-radius: 2px;
   outline: none;
   text-align: center;
 }
@@ -136,13 +187,13 @@ html, body {
 /* Arena picker (lobby + solo) */
 .arena-select {
   padding: 10px 14px;
-  font-family: inherit;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 14px;
   letter-spacing: 2px;
   background: #0d1533;
-  border: 2px solid #33415e;
+  border: 2px solid #16203c;
   color: #e8ecff;
-  border-radius: 2px;
   outline: none;
   text-align: center;
   width: 280px;
@@ -151,21 +202,60 @@ html, body {
 .arena-select:disabled { opacity: 0.5; }
 .lobby-arena { text-align: center; }
 
-/* Minimappa arena (F12b): thumbnail del layout accanto al picker */
+/* Minimappa arena (F12b) */
 .arena-minimap {
   display: block;
   margin: 8px auto 0;
   background: #060a1c;
-  border: 2px solid #33415e;
-  border-radius: 2px;
+  border: 1px solid #16203c;
   image-rendering: pixelated;
 }
 
 .error-msg {
   color: #FF6655;
   font-size: 14px;
-  text-align: center;
   letter-spacing: 1px;
+}
+
+/* Best runs (menu, in alto a destra) */
+.best-runs {
+  position: absolute;
+  top: 40px; right: 40px;
+  z-index: 10;
+  width: 240px;
+  background: rgba(13,21,51,0.6);
+  border: 1px solid #16203c;
+  padding: 16px 20px;
+}
+.best-runs h3 {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a9aac;
+  margin-bottom: 10px;
+}
+.best-runs .br-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 3px 0;
+}
+.best-runs .br-row .br-rank { color: #8a9aac; }
+.best-runs .br-row .br-score { color: #FFCC00; }
+.best-runs .br-empty { color: #5a6a94; font-size: 12px; }
+
+/* Riga comandi in basso (menu) */
+.menu-footer {
+  position: absolute;
+  left: 40px; bottom: 24px;
+  z-index: 10;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #8a9aac;
 }
 
 /* ── Lobby ─────────────────────────────────────────────────── */
@@ -182,8 +272,10 @@ html, body {
 }
 
 .lobby-top { text-align: center; }
-.lobby-top h2 { font-size: 22px; letter-spacing: 2px; color: #8899bb; }
+.lobby-top h2 { font-size: 22px; letter-spacing: 0.06em; color: #8a9aac; }
 .room-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 36px;
   letter-spacing: 8px;
   color: #FFCC00;
@@ -194,8 +286,9 @@ html, body {
 
 .ship-select-label, .players-label {
   font-size: 13px;
-  letter-spacing: 3px;
-  color: #8899bb;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a9aac;
   margin-bottom: 10px;
   text-align: center;
 }
@@ -211,46 +304,58 @@ html, body {
   width: 96px;
   padding: 10px 6px 8px;
   background: #0d1533;
-  border: 2px solid #33415e;
-  border-radius: 2px;
+  border: 2px solid #16203c;
   cursor: pointer;
   text-align: center;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.ship-card:hover { border-color: #8899bb; }
+.ship-card:hover { border-color: #8a9aac; }
 .ship-card.selected { border-color: #FFCC00; box-shadow: 0 0 14px #FFCC0066; }
 .ship-card canvas { display: block; margin: 0 auto 6px; }
 .ship-card .ship-name { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
 
-/* Dettaglio nave selezionata (F12c): sketch grande + barre stats CA */
+/* Dettaglio nave selezionata (sketch + barre stats + abilità signature) */
 .ship-detail {
   display: flex;
   gap: 18px;
   align-items: center;
   margin-top: 12px;
-  padding: 12px 18px;
+  padding: 16px 22px;
   background: #0d1533;
-  border: 2px solid #33415e;
-  border-radius: 2px;
-  min-width: 460px;
+  border: 1px solid #16203c;
+  min-width: 520px;
 }
 .ship-detail canvas {
   background: #060a1c;
-  border: 1px solid #22315e;
-  border-radius: 2px;
+  border: 1px solid #16203c;
 }
 .ship-detail-side { flex: 1; }
 .ship-detail .ship-detail-name {
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin-bottom: 6px;
+}
+.ship-detail .ship-ability {
+  font-size: 11px;
+  color: #8a9aac;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.ship-detail .ship-ability b { color: #FFCC00; letter-spacing: 0.06em; }
+.ship-detail .ship-ability .soon {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #5a6a94;
+  border: 1px solid #16203c;
+  padding: 1px 5px;
+  margin-left: 6px;
 }
 .ship-stats-bars {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 3px 18px;
-  flex: 1;
 }
 .stat-row {
   display: flex;
@@ -261,18 +366,17 @@ html, body {
 }
 .stat-row .stat-label {
   width: 96px;
-  color: #8899bb;
+  color: #8a9aac;
   text-align: right;
 }
 .stat-row .stat-bar {
   flex: 1;
   height: 8px;
-  background: #16204a;
-  border: 1px solid #22315e;
+  background: #16203c;         /* traccia barre da handbook */
 }
 .stat-row .stat-fill {
   height: 100%;
-  background: linear-gradient(90deg, #b88900, #FFCC00);
+  background: #FFCC00;
   box-shadow: 0 0 6px #FFCC0055;
 }
 
@@ -291,12 +395,11 @@ html, body {
   gap: 12px;
   padding: 10px 16px;
   background: #0d1533;
-  border-radius: 2px;
-  border-left: 3px solid #33415e;
+  border-left: 3px solid #16203c;
 }
 .player-row.ready { border-left-color: #44FF44; }
 .player-row .pname { flex: 1; font-size: 16px; }
-.player-row .pship { font-size: 12px; color: #8899bb; }
+.player-row .pship { font-size: 12px; color: #8a9aac; }
 .player-row .pstatus { font-size: 12px; color: #5a6a94; }
 .player-row.ready .pstatus { color: #44FF44; }
 
@@ -311,16 +414,19 @@ html, body {
 #screen-countdown { background: #00000088; flex-direction: column; }
 .countdown-controls {
   margin-top: 30px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 13px;
-  letter-spacing: 2px;
-  color: #8899bb;
+  letter-spacing: 0.06em;
+  color: #8a9aac;
   text-align: center;
   line-height: 1.9;
 }
 .countdown-number {
   font-size: 180px;
-  font-weight: 900;
-  letter-spacing: -10px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.045em;
   color: #FFCC00;
   text-shadow:
     0 0 40px #FFCC00,
@@ -344,14 +450,15 @@ html, body {
 }
 .controls-panel {
   background: #0d1533;
-  border: 2px solid #FFCC00;
-  border-radius: 4px;
+  border: 1px solid #16203c;
+  border-top: 2px solid #FFCC00;
   padding: 24px 32px;
-  box-shadow: 0 0 30px #FFCC0055;
+  box-shadow: 0 0 30px #060a1c;
 }
 .controls-panel h3 {
   color: #FFCC00;
-  letter-spacing: 4px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   text-align: center;
   margin: 0 0 16px 0;
 }
@@ -363,8 +470,9 @@ html, body {
   color: #ccd6ee;
 }
 .controls-panel td:first-child {
+  font-family: 'IBM Plex Mono', monospace;
   color: #FFCC00;
-  font-weight: bold;
+  font-weight: 600;
   text-align: right;
 }
 .controls-close {
@@ -389,7 +497,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 260px;
+  width: 300px;
 }
 
 /* ── Game Canvas ───────────────────────────────────────────── */
@@ -408,22 +516,33 @@ html, body {
   gap: 20px;
   padding: 50px 30px;
   background: #0d1533;
-  border: 2px solid #33415e;
-  border-radius: 4px;
-  min-width: 460px;
+  border: 1px solid #16203c;
+  border-top: 2px solid #FFCC00;
+  min-width: 520px;
   box-shadow: 0 0 40px #060a1c;
 }
 .scoreboard-wrapper h2 {
-  font-size: 28px;
-  letter-spacing: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
   color: #FFCC00;
   text-shadow: 0 0 14px #FFCC0066;
+}
+.scoreboard-wrapper .sub {
+  font-size: 13px;
+  color: #8a9aac;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: -12px;
 }
 .winner-banner {
   font-size: 18px;
   font-weight: 700;
   color: #FFE066;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   text-shadow: 0 0 12px #FFCC0088;
 }
 #scoreboard-table {
@@ -433,15 +552,18 @@ html, body {
 #scoreboard-table th {
   padding: 8px 14px;
   font-size: 12px;
-  letter-spacing: 2px;
-  color: #8899bb;
-  border-bottom: 1px solid #33415e;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a9aac;
+  border-bottom: 1px solid #16203c;
   text-align: left;
 }
 #scoreboard-table td {
   padding: 10px 14px;
-  font-size: 16px;
-  border-bottom: 1px solid #16204a;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 15px;
+  border-bottom: 1px solid #101a36;
 }
 #scoreboard-table tr:first-child td { color: #FFE066; }
 
@@ -453,8 +575,8 @@ html, body {
   gap: 0;
   padding: 36px 24px;
   background: #0d1533;
-  border: 2px solid #33415e;
-  border-radius: 4px;
+  border: 1px solid #16203c;
+  border-top: 2px solid #FFCC00;
   max-width: 680px;
   width: 95%;
   max-height: 90vh;
@@ -462,7 +584,10 @@ html, body {
 }
 .solo-title {
   font-size: 26px;
-  letter-spacing: 4px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
   color: #FFCC00;
   text-shadow: 0 0 14px #FFCC0066;
   margin-bottom: 20px;
@@ -476,14 +601,14 @@ html, body {
 }
 .solo-form input {
   padding: 12px 16px;
-  font-family: inherit;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 18px;
   letter-spacing: 3px;
   text-transform: uppercase;
   background: #0a1128;
-  border: 2px solid #33415e;
+  border: 2px solid #16203c;
   color: #e8ecff;
-  border-radius: 2px;
   outline: none;
   text-align: center;
   width: 280px;
@@ -491,8 +616,9 @@ html, body {
 .solo-form input:focus { border-color: #FFCC00; box-shadow: 0 0 8px #FFCC0066; }
 .diff-label {
   font-size: 12px;
-  letter-spacing: 3px;
-  color: #8899bb;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a9aac;
   margin-top: 6px;
 }
 .diff-buttons {
@@ -501,13 +627,15 @@ html, body {
 }
 .diff-btn {
   padding: 10px 22px;
+  height: auto;
   font-size: 14px;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
   background: #0a1128;
-  color: #8899bb;
-  border: 2px solid #33415e;
-  border-radius: 2px;
+  color: #8a9aac;
+  border: 2px solid #16203c;
 }
+.diff-btn::before { display: none; }
+.diff-btn { padding-left: 22px; }
 .diff-btn.selected { color: #FFCC00; border-color: #FFCC00; box-shadow: 0 0 10px #FFCC0055; }
 .diff-hint {
   font-size: 11px;
@@ -515,7 +643,7 @@ html, body {
   letter-spacing: 1px;
   min-height: 16px;
 }
-.solo-play-btn { width: 200px; margin-top: 6px; }
+.solo-play-btn { width: 300px; margin-top: 6px; }
 
 /* Solo mode tabs + mission picker */
 .solo-mode-options {
@@ -535,8 +663,7 @@ html, body {
 .mission-item {
   padding: 10px 14px;
   background: #0a1128;
-  border: 2px solid #33415e;
-  border-radius: 2px;
+  border: 2px solid #16203c;
   cursor: pointer;
   text-align: left;
 }
@@ -544,7 +671,8 @@ html, body {
 .mission-item.selected { border-color: #FFCC00; box-shadow: 0 0 10px #FFCC0055; }
 .mission-item .mission-name {
   font-size: 14px;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: #e8ecff;
 }
 .mission-item .mission-diff {
@@ -555,7 +683,7 @@ html, body {
 .mission-item .mission-done { color: #44FF44; margin-left: 6px; }
 .mission-item .mission-desc {
   font-size: 11px;
-  color: #8899bb;
+  color: #8a9aac;
   letter-spacing: 1px;
   margin-top: 2px;
 }
@@ -568,13 +696,15 @@ html, body {
 }
 .lb-tab {
   padding: 8px 18px;
+  height: auto;
   font-size: 13px;
-  letter-spacing: 2px;
+  letter-spacing: 0.06em;
   background: #0a1128;
-  color: #8899bb;
-  border: 1px solid #33415e;
-  border-radius: 2px;
+  color: #8a9aac;
+  border: 1px solid #16203c;
 }
+.lb-tab::before { display: none; }
+.lb-tab { padding-left: 18px; }
 .lb-tab.active { color: #FFCC00; border-color: #FFCC00; }
 #lb-table {
   width: 100%;
@@ -584,34 +714,40 @@ html, body {
 #lb-table th {
   padding: 8px 12px;
   font-size: 11px;
-  letter-spacing: 2px;
-  color: #8899bb;
-  border-bottom: 1px solid #33415e;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a9aac;
+  border-bottom: 1px solid #16203c;
   text-align: left;
 }
 #lb-table td {
   padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
   font-size: 14px;
-  border-bottom: 1px solid #16204a;
+  border-bottom: 1px solid #101a36;
 }
 #lb-table tr:first-child td { color: #FFE066; }
 
-/* ── Solo End (GAME OVER stile CA) ─────────────────────────── */
+/* ── Solo End (GAME OVER stile handbook) ───────────────────── */
 .solo-stats {
   width: 100%;
   max-width: 420px;
   font-size: 15px;
   color: #ccd6ee;
-  letter-spacing: 1px;
 }
 .solo-stats .stat-line {
   display: flex;
   justify-content: space-between;
   padding: 6px 4px;
-  border-bottom: 1px solid #16204a;
+  border-bottom: 1px solid #101a36;
 }
-.solo-stats .stat-line .k { color: #8899bb; letter-spacing: 2px; }
-.solo-stats .stat-line .v { color: #e8ecff; font-weight: 700; }
+.solo-stats .stat-line .k { color: #8a9aac; letter-spacing: 0.06em; text-transform: uppercase; }
+.solo-stats .stat-line .v {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: #e8ecff;
+}
 .solo-stats .stat-line .v.hl { color: #FFCC00; font-size: 20px; text-shadow: 0 0 10px #FFCC0066; }
 
 /* ── Utility ───────────────────────────────────────────────── */

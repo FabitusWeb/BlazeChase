@@ -133,19 +133,19 @@ function assertValidArena(arena, label) {
 
 // ── Layout parsing & validity ─────────────────────────────────
 
-test('all 9 handcrafted layouts parse and are structurally valid', () => {
+test('all 12 handcrafted layouts parse and are structurally valid', () => {
   const handcrafted = LAYOUTS.filter(l => !l.id.startsWith('ca-'));
-  assert.strictEqual(handcrafted.length, 9);
+  assert.strictEqual(handcrafted.length, 12);
   for (const layout of handcrafted) {
     const arena = parseArena(layout);
     assertValidArena(arena, layout.id);
   }
 });
 
-test('layout difficulties: 3 EASY, 3 MEDIUM, 3 HARD (handcrafted)', () => {
+test('layout difficulties: 4 EASY, 5 MEDIUM, 3 HARD (handcrafted)', () => {
   const count = { EASY: 0, MEDIUM: 0, HARD: 0 };
   for (const l of LAYOUTS.filter(l => !l.id.startsWith('ca-'))) count[l.difficulty]++;
-  assert.deepStrictEqual(count, { EASY: 3, MEDIUM: 3, HARD: 3 });
+  assert.deepStrictEqual(count, { EASY: 4, MEDIUM: 5, HARD: 3 });
 });
 
 // ── Connectivity ──────────────────────────────────────────────
@@ -199,11 +199,11 @@ test('parseArena validates input', () => {
   assert.throws(() => parseArena({ ...base, map: noSpawns }), /4 spawn/);
 });
 
-test('arenaList() returns 9 handcrafted entries with unique ids and valid metadata', () => {
+test('arenaList() returns 12 handcrafted entries with unique ids and valid metadata', () => {
   const list = arenaList().filter(a => !a.id.startsWith('ca-'));
-  assert.strictEqual(list.length, 9);
+  assert.strictEqual(list.length, 12);
   const ids = new Set(list.map(a => a.id));
-  assert.strictEqual(ids.size, 9);
+  assert.strictEqual(ids.size, 12);
   for (const a of list) {
     assert.ok(a.name && typeof a.name === 'string');
     assert.ok(['EASY', 'MEDIUM', 'HARD'].includes(a.difficulty));

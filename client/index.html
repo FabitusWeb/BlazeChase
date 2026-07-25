@@ -16,13 +16,14 @@
   <div class="menu-bg" id="menu-bg-canvas-wrapper">
     <canvas id="menu-bg-canvas"></canvas>
   </div>
-  <div class="menu-center">
+  <div class="menu-left">
+    <div class="menu-tag">arena combat · 2–4 players</div>
     <h1 class="game-title">BLAZE<br><span>CHASE</span></h1>
     <div class="menu-buttons">
       <button class="btn btn-primary" id="btn-solo">SINGLE PLAYER</button>
       <button class="btn btn-secondary" id="btn-create">CREATE ROOM</button>
       <button class="btn btn-secondary" id="btn-join">JOIN ROOM</button>
-      <button class="btn btn-back" id="btn-leaderboard">LEADERBOARD</button>
+      <button class="btn btn-secondary" id="btn-leaderboard">LEADERBOARD</button>
     </div>
     <div id="join-form" class="join-form hidden">
       <input id="input-code" type="text" maxlength="4" placeholder="ROOM CODE" autocomplete="off" spellcheck="false">
@@ -39,6 +40,11 @@
       <button class="btn btn-primary" id="btn-offline">GIOCA OFFLINE</button>
     </div>
   </div>
+  <div id="best-runs" class="best-runs">
+    <h3>Best runs</h3>
+    <div id="best-runs-list"></div>
+  </div>
+  <div class="menu-footer">WASD muovi · SPAZIO spara · SHIFT turbo · CTRL schivata · H comandi</div>
 </div>
 
 <!-- ── SINGLE PLAYER ──────────────────────────────────── -->

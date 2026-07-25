@@ -57,6 +57,7 @@ function setState(s) {
   state = s;
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   document.getElementById(`screen-${s}`)?.classList.add('active');
+  if (s === STATES.MENU) buildBestRuns();   // aggiorna i best runs ogni volta
 }
 
 // ── Boot ──────────────────────────────────────────────────────
@@ -413,6 +414,16 @@ function buildShipSelect(gridEl, detailEl, onSelect) {
   renderShipDetail(detailEl, myShip);
 }
 
+// Abilità signature da handbook F18/F19 — display nella ship select;
+// la logica di gioco arriva con F19 (tag "F19" accanto al nome).
+const ABILITY_INFO = [
+  { name: 'BLINK',            desc: 'Scatto istantaneo di 3 tile nella direzione di prua. Attraversa i proiettili, non i muri.' },
+  { name: 'SCIA INCENDIARIA', desc: 'La rotta brucia per 4 s (12 dps). Attenzione: brucia anche te.' },
+  { name: 'ARIETE',           desc: 'Carica frontale da 0,9 s: sfonda i mattoni, rimbalzi sul metallo.' },
+  { name: 'STEALTH',          desc: 'Invisibile per 5 s. Sparando si rompe.' },
+  { name: 'OVERDRIVE',        desc: '3 s di potenza massima: anello arancio e chevron in coda.' },
+];
+
 // Sketch grande della nave + barre stats (pannello sotto la griglia)
 function renderShipDetail(el, shipId) {
   if (!el) return;
@@ -431,6 +442,13 @@ function renderShipDetail(el, shipId) {
   name.style.color = ship.color;
   name.textContent = ship.name;
   side.appendChild(name);
+
+  // Abilità signature (F19)
+  const ab = ABILITY_INFO[shipId] || ABILITY_INFO[0];
+  const abEl = document.createElement('div');
+  abEl.className = 'ship-ability';
+  abEl.innerHTML = `<b>${ab.name}</b><span class="soon">F19</span> — ${ab.desc}`;
+  side.appendChild(abEl);
 
   const bars = document.createElement('div');
   bars.className = 'ship-stats-bars';
@@ -738,6 +756,26 @@ function setupSoloUI() {
 
 // ── Leaderboard (localStorage) ───────────────────────────────
 const LS_KEY = 'blazechase_scores';
+
+// ── Best runs (menu, in alto a destra) ─────────────────────
+// Top 5 assoluti dal localStorage, formato: NN NOME … PUNTEGGIO
+function buildBestRuns() {
+  const el = document.getElementById('best-runs-list');
+  if (!el) return;
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { all = []; }
+  const top = all.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 5);
+  if (top.length === 0) {
+    el.innerHTML = '<div class="br-empty">Nessuna partita ancora</div>';
+    return;
+  }
+  el.innerHTML = top.map((s, i) => `
+    <div class="br-row">
+      <span><span class="br-rank">${String(i + 1).padStart(2, '0')}</span> ${esc(s.name || '?').toUpperCase()}</span>
+      <span class="br-score">${s.score || 0}</span>
+    </div>
+  `).join('');
+}
 
 function saveScore(msg) {
   if (!msg.kills && !msg.score) return;

@@ -10,6 +10,32 @@ const TS = CONFIG.TILE_SIZE;
 // Sprite originali CA (caricati da main.js via loadTileSprites)
 const TILE_SPRITES = { wall: null, crate: null, crateCracked: null, starbg: null };
 
+// Tile dei temi proprietari (F18c): assets/tiles/<tema>/{floor,wall_solid,
+// wall_dest,wall_dest_cracked}.png — caricati lazy per tema usato dall'arena
+const THEME_SPRITES = {};    // tema → { floor, wall_solid, wall_dest, wall_dest_cracked }
+const THEME_PROMISES = {};   // tema → Promise di caricamento (cache)
+
+function loadThemeTiles(tema) {
+  if (THEME_PROMISES[tema]) return THEME_PROMISES[tema];
+  const load = (src) => new Promise((res) => {
+    if (typeof Image === 'undefined') return res(null);   // Node/test env
+    try {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    } catch { res(null); }
+  });
+  THEME_PROMISES[tema] = Promise.all(
+    ['floor', 'wall_solid', 'wall_dest', 'wall_dest_cracked'].map(fn =>
+      load(`assets/tiles/${tema}/${fn}.png`).then(img => [fn, img]))
+  ).then(entries => {
+    THEME_SPRITES[tema] = Object.fromEntries(entries);
+    return THEME_SPRITES[tema];
+  });
+  return THEME_PROMISES[tema];
+}
+
 export function loadTileSprites() {
   const load = (src) => new Promise((res) => {
     if (typeof Image === 'undefined') return res(null);   // Node/test env
@@ -63,6 +89,11 @@ export class ArenaRenderer {
     this.crackSeeds  = {};
 
     this._preRender();
+
+    // Tema proprietario con tile dedicati (F18c): carica async e ridisegna
+    if (this.theme.tileTheme) {
+      loadThemeTiles(this.theme.tileTheme).then(() => this._preRender());
+    }
   }
 
   _preRender() {
@@ -117,9 +148,14 @@ export class ArenaRenderer {
     }
   }
 
-  // ── Floor: starfield ORIGINALE CA (640x480 tiled; 640/40=16, 480/40=12
-  //    tile esatte — nessuna cucitura). Fallback: starfield procedurale. ──
+  // ── Floor: tile del tema proprietario se c'è (F18c), altrimenti
+  //    starfield ORIGINALE CA (640x480 tiled), poi starfield procedurale. ──
   _drawFloor(ctx, x, y, c, r) {
+    const themeTiles = THEME_SPRITES[this.theme.tileTheme];
+    if (themeTiles?.floor) {
+      ctx.drawImage(themeTiles.floor, x, y, TS, TS);
+      return;
+    }
     if (TILE_SPRITES.starbg) {
       const img = TILE_SPRITES.starbg;
       ctx.drawImage(img, x % 640, y % 480, TS, TS, x, y, TS, TS);
@@ -172,14 +208,16 @@ export class ArenaRenderer {
     }
   }
 
-  // ── Solid wall: sprite CA originale (fallback: metallo procedurale) ──
+  // ── Solid wall: tile del tema (F18c) o sprite CA (fallback: procedurale) ──
   _drawWallSolid(ctx, x, y, c, r) {
     const th = this.theme;
     const rng = seededRng(c * 31337 + r * 733);
+    const themeTiles = THEME_SPRITES[this.theme.tileTheme];
+    const wallImg = themeTiles?.wall_solid || TILE_SPRITES.wall;
 
-    if (TILE_SPRITES.wall) {
-      // Tile metallico originale Chase Ace
-      ctx.drawImage(TILE_SPRITES.wall, x, y, TS, TS);
+    if (wallImg) {
+      // Tile originale (tema proprietario o metallo CA)
+      ctx.drawImage(wallImg, x, y, TS, TS);
       // Leggera variazione di tono seeded per spezzare la ripetizione
       if (rng() > 0.6) {
         ctx.fillStyle = rng() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.10)';
@@ -301,13 +339,16 @@ export class ArenaRenderer {
     const frac  = hp / maxHp;  // 0=destroyed, 1=full
     const rng = seededRng(c * 4243 + r * 991);
 
-    if (TILE_SPRITES.crate) {
+    const themeTiles = THEME_SPRITES[this.theme.tileTheme];
+    const destImg    = themeTiles?.wall_dest         || TILE_SPRITES.crate;
+    const crackedImg = themeTiles?.wall_dest_cracked || TILE_SPRITES.crateCracked;
+
+    if (destImg) {
       // Pavimento sotto la cassa (le casse CA stanno sullo sfondo)
       this._drawFloor(ctx, x, y, c, r);
-      // Cassa originale Chase Ace; sotto il 66% di HP passa alla variante
+      // Cassa/mattone del tema; sotto il 66% di HP passa alla variante
       // crepata (come in CA, dove la scatola si sfascia a botte)
-      const img = (frac < 0.66 && TILE_SPRITES.crateCracked)
-        ? TILE_SPRITES.crateCracked : TILE_SPRITES.crate;
+      const img = (frac < 0.66 && crackedImg) ? crackedImg : destImg;
       // Leggera rotazione seeded per varietà
       const rot = (rng() - 0.5) * 0.12;
       ctx.save();

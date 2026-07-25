@@ -29,6 +29,10 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - **F12 UI stile CA**: tema giallo-oro (#FFCC00) su blu notte in tutti i menu/pannelli; minimappa layout nel picker arene (lobby+solo, `client/js/minimap.js`, '?' per random); ship select con sketch grande + 8 barre stats CA (SPEED/TURNSPEED/ACCELERATION/TURBOFACTOR/GRIP/WEIGHT/AMMOSTOCK/SHIELD — le 2 weapon stats CA omesse, arsenale condiviso; `grip`/`weight` in CONFIG solo display); GAME OVER stats complete: `round_end` manda shipId/shotsFired/shotsHit/gameTime, scoreboard con SHOTS+ACC%, solo-end a righe chiave→valore
 - **F12e pausa**: ESC in partita → overlay PAUSA (RIPRENDI/COMANDI/ESCI); in offline il Game si ferma davvero (`pause()`/`resume()` in game.js); server: messaggio `leave` → `removeClientFromRoom`
 - **F14 asset originali CA**: script `server/tools/extract-assets.sh` (ImageMagick, rigenera tutto dai BMP in `/home/coder/chaseace-original/assets/`). Casse = scatola gialla metallica CA + variante crepata sotto 66% HP; muri = pannelli metallo CA; pavimento = starbackground.bmp originale tiled 640x480; esplosioni grandi += sequenza blu EXPLODE.bmp (7 frame additivi); powerup = icone originali POWERUPS.bmp (mapping per effetto, fallback lettere); navi = frame nose-up dai PLAYER*.bmp ruotati a runtime (mapping VIPER→classic P1, HORNET→Lfighter P4, TITAN→hoogb4a P2, PHANTOM→gobel P1, BLAZE→martinez P1), fallback procedurale ovunque; audio: `audio.setShip(myShip)` cablato (WAV sparo/motore originali già in assets/audio)
+- **F18 identità proprietaria** (handbook grafico in `.design/`, gitignored — direzione A "Industrial 90s"):
+  - **F18a asset swap**: navi custom 48px (cuneo ciano/ago giallo/blocco rosso/doppio scafo viola/hotrod arancio), powerup esagonali rim oro + glifo, proiettili "hardware" nose-up ruotati a runtime (mortai rotazione libera, plasma 2 frame 10/s, mine 2 stati con pulse), fx handbook (esplosione nastri, impact spark, muzzle flash orientato) — tutto in `fx.js`/`ships.js` con fallback procedurale
+  - **F18b UI da mockup**: font Archivo 800i/700 + IBM Plex Mono 600 (woff2 in assets/fonts, OFL); ZERO border-radius; firma doppio chevron (oro+arancio); menu a bandiera sx con best runs top-right + footer comandi; bottoni h52 w300 con chevron selezione; HUD riscritto: top bar h30 AMMO #6ee87a/SHIELD #FF9828 (critico rosso lampeggio 0,4s), vite = 3 chevron nave, toast arma y40 bordo oro, DANGER Archivo 30px y96, punteggi colonna basso-dx con pastiglie, **BLAZE METER** 10 chevron 20×22 (solo visuale: appare quando il server manderà `player.blaze` — logica F19); ship select con scheda abilità signature (tag F19)
+  - **F18c temi arena**: 3 tile set 40×40 (`assets/tiles/<tema>/{floor,wall_solid,wall_dest,wall_dest_cracked}.png`) — CIRCUIT (oro/circuito), SHIPYARD (acciaio/ruggine), COOLANT (brina); `THEMES[].tileTheme` in config, caricamento lazy per tema in arena.js; 3 arene nuove (circuit-vault/orbital-shipyard/coolant-fracture) → 12 handcrafted, test aggiornati
 
 ### Riferimenti (`.refs-tmp/`, gitignored)
 - `MECCANICA.md` — BIBBIA: formato CHZ_RS2, FANCYSMANCY (stats navi), ENEMYIQ (AI), formato `.lev` (testo), corsi, 36 powerup POW*
@@ -37,10 +41,15 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - Asset originali estratti in `/home/coder/chaseace-original/assets/` (65 BMP + 12 WAV) — riferimento, NON nel repo tranne i 4 tile committati
 
 ### Roadmap prossime fasi
-- **F13 — Arene varietà**: canali d'acqua/fratture, stanze tema circuito (da refs clean-room)
+- **F19 — BLAZE METER + abilità signature**: meter che si riempie colpendo/schivando e si svuota col turbo → abilità per nave (VIPER blink, TITAN ariete, HORNET scia incendiaria 12dps, PHANTOM stealth 5s, BLAZE overdrive 3s). Specifiche visive/tempi nel handbook (`.design/`, fx/ability/ già in assets); HUD già pronto (`player.blaze`)
+- **F13 — Arene varietà**: piante concrete per i 3 temi F18c + canali refrigerante che rallentano, stanze tema circuito con pistoni
 - **F15 — AI CA**: comportamenti dai 26 .NMY (skill/reaction/vision/range da ENEMYIQ), nemici che spawnano nemici (missile→MISSILE2)
-- **F16 — Più armi CA**: GAZ, ARTILLERY, MICRO BLASTER, BOOMERANG, TIME BLAST + powerup DEFLECTOR/HOMING TURRET/MINI TURRETS
-- **F14b — rimanenze asset**: rotazioni complete navi (layout radiale sheet da decodificare), edifici da BUILDINGS.bmp, tile bordo/angolo autotile, bottoni trigger originali, suoni esplosioni/allarmi originali (non estratti: servono dai .NMY)
+- **F16 — Più armi CA**: GAZ, ARTILLERY, MICRO BLASTER, BOOMERANG, TIME BLAST + powerup DEFLECTOR/HOMING TURRET/MINI TURRETS (specifiche visuali già nel handbook set 03)
+- **F17 — Mobile**: touch controls (joystick + FIRE, target 44px), UI responsive, PWA
+- **F20 — Retention**: daily run seeded + leaderboard server, endless salvage (upgrade 1-di-3), schermata progressione
+- **F21 — Editor arene web** (omaggio all'editor di CA1)
+- **F14b — rimanenze asset CA**: rotazioni complete navi (layout radiale sheet), edifici BUILDINGS.bmp, bottoni trigger originali, suoni esplosioni dai .NMY
+- **Identità aperta**: logo definitivo quadrato + favicon, colori/etichette 4 giocatori stessa tastiera
 - Infra (fuori repo): uptime monitor prod, testo mail Biodome → PERMISSION.md
 
 ## Regole operative

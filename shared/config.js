@@ -147,14 +147,21 @@ const CONFIG = {
   POWERUP_DROP_CHANCE: 0.35, // when enemy/wall is destroyed
 
   // ── Arena themes ─────────────────────────────────────────
+  // tileTheme (F18c): cartella in assets/tiles/<tileTheme>/ con
+  // floor/wall_solid/wall_dest/wall_dest_cracked.png — se presente il
+  // renderer usa quei tile al posto del disegno procedurale
   THEMES: {
     INDUSTRIAL: { floor: '#7a6648', wall: '#3a3a48', wallDest: '#6a4a30', accent: '#FFD700', acid: '#2a5a1a', refuel: '#1a2a5a' },
     DESERT:     { floor: '#c2a66b', wall: '#7a5a1a', wallDest: '#8a5a2a', accent: '#FF6B35', acid: '#2a5a1a', refuel: '#1a2a5a' },
     TOXIC:      { floor: '#4a5a3a', wall: '#2a2a2a', wallDest: '#3a3a2a', accent: '#88FF44', acid: '#1a3a0a', refuel: '#0a1a3a' },
     ICE:        { floor: '#8ab4c4', wall: '#4a6a84', wallDest: '#5a7a90', accent: '#00DDFF', acid: '#1a5a1a', refuel: '#1a3a6a' },
     LAVA:       { floor: '#4a2a10', wall: '#1a0a00', wallDest: '#3a1a08', accent: '#FF4400', acid: '#1a3a0a', refuel: '#0a1a3a' },
+    // ── Temi proprietari (handbook F18) ──────────────────────
+    CIRCUIT:    { floor: '#7a5f10', wall: '#e8b818', wallDest: '#c8a820', accent: '#FFCC00', acid: '#2a5a1a', refuel: '#1a2a5a', tileTheme: 'circuit_vault' },
+    SHIPYARD:   { floor: '#3a4a5c', wall: '#3a4a5c', wallDest: '#8a6a4a', accent: '#8a9aac', acid: '#2a5a1a', refuel: '#1a2a5a', tileTheme: 'orbital_shipyard' },
+    COOLANT:    { floor: '#4a6a7a', wall: '#3a4a5c', wallDest: '#c8a820', accent: '#66DDFF', acid: '#1a4a5a', refuel: '#1a2a5a', tileTheme: 'coolant_fracture' },
   },
-  THEME_NAMES: ['INDUSTRIAL', 'DESERT', 'TOXIC', 'ICE', 'LAVA'],
+  THEME_NAMES: ['INDUSTRIAL', 'DESERT', 'TOXIC', 'ICE', 'LAVA', 'CIRCUIT', 'SHIPYARD', 'COOLANT'],
 
   // ── Bullet lifetime ────────────────────────────────────────
   BULLET_LIFETIME: 3.0,  // seconds

@@ -4,15 +4,18 @@
 
 const TAU = Math.PI * 2;
 
-// ── Sprite originali CA (caricati da main.js via loadFXSprites) ─────
-// Frame esplosione blu da statics_chz__EXPLODE.bmp (frame 1-7: il 0 è una
-// scheggia singola) e icone powerup da statics_chz__POWERUPS.bmp.
-// Fallback: se non caricati restano le versioni procedurali.
-const EXPLODE_FRAMES = [];
+// ── Sprite proprietari BlazeChase (handbook F18, caricati da main.js via
+//    loadFXSprites). Fallback: se un PNG manca resta la grafica procedurale.
 const POWERUP_ICONS  = {};   // effect → Image
+const BULLET_SPRITES = {};   // weaponId → Image (plasma: {f0,f1})
+const FX_SPRITES     = {};   // 'explosion' | 'impact' | 'muzzle' | 'mine_off' | 'mine_on' → Image
 
-// Frame/sec dell'animazione esplosione CA
-const EXPLODE_FPS = 10;
+// weaponId (config.js) → file in assets/bullets/ (nomi dal set "Assets pronti")
+const BULLET_FILES = {
+  0: 'blaster', 1: 'double', 2: 'spread', 3: 'missile', 4: 'machinegun',
+  6: 'mortar', 7: 'macro_mortar', 8: 'charge_rocket', 9: 'laser_beam',
+  11: 'sneaky_missile', 13: 'sticky_bomb', 14: 'lazer_trap',
+};
 
 export function loadFXSprites() {
   const load = (src) => new Promise((res) => {
@@ -25,11 +28,21 @@ export function loadFXSprites() {
     } catch { res(null); }
   });
   const jobs = [];
-  for (let i = 1; i <= 7; i++) {
-    jobs.push(load(`assets/fx/explode_${i}.png`).then(img => {
-      if (img) EXPLODE_FRAMES[i - 1] = img;
-    }));
+  // Effetti di combattimento (master 96×96, scalati a runtime)
+  for (const [key, file] of [['explosion', 'explosion'], ['impact', 'impact_spark'], ['muzzle', 'muzzle_flash']]) {
+    jobs.push(load(`assets/fx/${file}.png`).then(img => { if (img) FX_SPRITES[key] = img; }));
   }
+  // Mine a due stati (disarmata/armata)
+  for (const st of ['off', 'on']) {
+    jobs.push(load(`assets/bullets/mine_${st}.png`).then(img => { if (img) FX_SPRITES[`mine_${st}`] = img; }));
+  }
+  // Proiettili hardware: un frame nose-up per arma; plasma ha 2 frame
+  for (const [id, name] of Object.entries(BULLET_FILES)) {
+    jobs.push(load(`assets/bullets/${name}.png`).then(img => { if (img) BULLET_SPRITES[id] = img; }));
+  }
+  jobs.push(load('assets/bullets/plasma_0.png').then(img => { if (img) (BULLET_SPRITES[5] = BULLET_SPRITES[5] || {}).f0 = img; }));
+  jobs.push(load('assets/bullets/plasma_2.png').then(img => { if (img) (BULLET_SPRITES[5] = BULLET_SPRITES[5] || {}).f1 = img; }));
+  // Icone powerup esagonali (guscio oro + glifo)
   for (const def of (typeof CONFIG !== 'undefined' ? CONFIG.POWERUPS : [])) {
     jobs.push(load(`assets/powerups/${def.effect}.png`).then(img => {
       if (img) POWERUP_ICONS[def.effect] = img;
@@ -47,7 +60,7 @@ export class FXSystem {
     this.flashes    = [];   // { x, y, radius, maxRadius, life, maxLife, color }
     this.fireballs  = [];   // { x, y, vx, vy, radius, maxRadius, life, maxLife }
     this.smoke      = [];   // { x, y, vx, vy, size, life, maxLife, tint, swirl }
-    this.sprites    = [];   // { x, y, life, maxLife, size } — animazioni a frame CA (esplosione blu)
+    this.sprites    = [];   // { x, y, life, maxLife, size, img, angle?, grow? } — sprite handbook F18
 
     this.shakeX   = 0;
     this.shakeY   = 0;
@@ -169,6 +182,11 @@ export class FXSystem {
 
   /** Muzzle flash when a new bullet appears. */
   spawnMuzzle(wx, wy, angle, color) {
+    // Flash sprite del set proprietario, orientato col colpo
+    // (lo sprite punta a sinistra: offset -PI per allinearlo alla rotta)
+    if (FX_SPRITES.muzzle) {
+      this.sprites.push({ x: wx, y: wy, life: 0.09, maxLife: 0.09, size: 26, angle, angleOff: -Math.PI, img: FX_SPRITES.muzzle });
+    }
     this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 14, life: 0.08, maxLife: 0.08, color: color || '#FFDD66' });
     for (let i = 0; i < 2; i++) {
       const a = angle + (Math.random() - 0.5) * 0.6;
@@ -188,6 +206,10 @@ export class FXSystem {
 
   // ── SMALL: hit spark ─────────────────────────────────────
   _spawnSmall(wx, wy, color) {
+    // Scintilla d'impatto del set proprietario
+    if (FX_SPRITES.impact) {
+      this.sprites.push({ x: wx, y: wy, life: 0.18, maxLife: 0.18, size: 26, angle: Math.random() * TAU, img: FX_SPRITES.impact });
+    }
     const num = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < num; i++) {
       const angle = Math.random() * TAU;
@@ -250,9 +272,9 @@ export class FXSystem {
     this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 70, life: 0.16, maxLife: 0.16, color: '#FFFFFF' });
     this.flashes.push({ x: wx, y: wy, radius: 0, maxRadius: 45, life: 0.24, maxLife: 0.24, color: '#FF8800' });
 
-    // Esplosione a energia blu ORIGINALE CA (EXPLODE.bmp) sopra i nastri
-    if (EXPLODE_FRAMES.length > 0) {
-      this.sprites.push({ x: wx, y: wy, life: 0.7, maxLife: 0.7, size: 110 });
+    // Esplosione a nastri del set proprietario (master 96px: cresce e sfuma)
+    if (FX_SPRITES.explosion) {
+      this.sprites.push({ x: wx, y: wy, life: 0.7, maxLife: 0.7, size: 70, grow: 1.9, img: FX_SPRITES.explosion });
     }
 
     // Core glow (small) + MANY long jagged flame ribbons spiralling out
@@ -448,19 +470,22 @@ export class FXSystem {
 
     ctx.restore();
 
-    // ── Sprite CA: esplosione blu a frame (additiva, sopra flash/ribbons) ──
-    if (this.sprites.length > 0 && EXPLODE_FRAMES.length > 0) {
+    // ── Sprite handbook F18: impatti, muzzle, esplosione a nastri ──
+    if (this.sprites.length > 0) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const s of this.sprites) {
+        if (!s.img) continue;
         const frac = 1 - s.life / s.maxLife;   // 0 → 1 nel tempo
-        const fi = Math.min(EXPLODE_FRAMES.length - 1,
-                            Math.floor(frac * EXPLODE_FRAMES.length));
-        const img = EXPLODE_FRAMES[fi];
-        if (!img) continue;
+        const size = s.size * (s.grow ? (1 + (s.grow - 1) * frac) : 1);
         const sx = s.x - camX;
         const sy = s.y - camY;
-        ctx.drawImage(img, sx - s.size / 2, sy - s.size / 2, s.size, s.size);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, s.life / s.maxLife * 1.6);
+        ctx.translate(sx, sy);
+        if (s.angle !== undefined) ctx.rotate(s.angle + (s.angleOff !== undefined ? s.angleOff : Math.PI / 2));
+        ctx.drawImage(s.img, -size / 2, -size / 2, size, size);
+        ctx.restore();
       }
       ctx.restore();
     }
@@ -533,13 +558,43 @@ export class FXSystem {
   }
 
   /** Draw bullets as CA-style bolts: elongated body along velocity, bright core */
-  drawBullets(ctx, bullets, camX, camY) {
+  drawBullets(ctx, bullets, camX, camY, time = 0) {
     for (const b of bullets) {
       const wDef  = CONFIG.WEAPONS[b.weapon] || CONFIG.WEAPONS[0];
       const color = wDef.color;
       const sx = b.x - camX;
       const sy = b.y - camY;
 
+      // ── Sprite hardware del set proprietario (nose-up, ruotato a runtime) ──
+      const spr = BULLET_SPRITES[b.weapon];
+      if (spr) {
+        const speed = Math.hypot(b.vx, b.vy);
+        let angle;
+        if (b.weapon === 6 || b.weapon === 7) {
+          // Mortai: rotazione libera in volo (granate, non dardi)
+          angle = ((b.id || 0) * 0.7) + time * 3;
+        } else {
+          angle = speed > 0 ? Math.atan2(b.vy, b.vx) : 0;
+        }
+        let img = spr;
+        if (b.weapon === 5) {
+          // Plasma: 2 frame, nucleo che ribolle (10/s)
+          img = (Math.floor(time * 10) % 2 === 0 ? spr.f0 : spr.f1) || spr.f0;
+          if (!img) { /* fallback sotto */ }
+        }
+        if (img) {
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(angle + Math.PI / 2);
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 5;
+          ctx.drawImage(img, -img.width / 2, -img.height / 2);
+          ctx.restore();
+          continue;
+        }
+      }
+
+      // ── Fallback procedurale (sprite non caricato) ──
       const speed = Math.hypot(b.vx, b.vy);
       const nx = speed > 0 ? b.vx / speed : 1;
       const ny = speed > 0 ? b.vy / speed : 0;
@@ -619,10 +674,23 @@ export class FXSystem {
       ctx.fill();
     }
 
-    // ── Mines (blinking red when armed) ──
+    // ── Mine (sprite a due stati: disarmata fissa, armata pulsante) ──
     for (const m of state.mines || []) {
       const sx = m.x - camX;
       const sy = m.y - camY;
+      const img = m.armed ? FX_SPRITES.mine_on : FX_SPRITES.mine_off;
+      if (img) {
+        ctx.save();
+        if (m.armed) {
+          // Pulse 0,5 s quando la mina è armata (da handbook)
+          ctx.globalAlpha = 0.65 + 0.35 * Math.sin(time * 12);
+          ctx.shadowColor = '#FF2222';
+          ctx.shadowBlur = 10;
+        }
+        ctx.drawImage(img, sx - img.width / 2, sy - img.height / 2);
+        ctx.restore();
+        continue;
+      }
       ctx.save();
       ctx.fillStyle = '#2A2A30';
       ctx.strokeStyle = '#555560';
@@ -924,11 +992,16 @@ export class FXSystem {
       ctx.arc(sx, sy, 10, 0, TAU);
       ctx.fill();
 
-      // Icona ORIGINALE CA (POWERUPS.bmp) se caricata, altrimenti lettera
+      // Icona esagonale proprietaria (guscio oro + glifo), rotazione lenta
+      // 4 s/giro da handbook; fallback: lettera procedurale
       const icon = POWERUP_ICONS[def.effect];
       if (icon) {
         ctx.shadowBlur = 6;
-        ctx.drawImage(icon, sx - 12, sy - 12, 24, 24);
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(time * (TAU / 4));
+        ctx.drawImage(icon, -14, -14, 28, 28);
+        ctx.restore();
       } else {
         ctx.fillStyle = color;
         ctx.font      = 'bold 12px monospace';
