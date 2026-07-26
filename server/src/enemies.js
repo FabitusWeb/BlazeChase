@@ -21,6 +21,10 @@ const DIFF = {
  * @param {number} shipId
  * @param {string} difficulty
  */
+// F15a: sprite nemico dedicato per difficoltà (dai GFX dei .NMY originali CA,
+// assets/enemies/<tipo>.png) — i nemici non usano più le navi dei giocatori
+const ENEMY_TYPES = { easy: 'stupid', medium: 'good', hard: 'expert' };
+
 function createAIShip(id, spawnPoint, shipId, difficulty) {
   const def    = CONFIG.SHIPS[shipId];
   const diff   = DIFF[difficulty] || DIFF.easy;
@@ -30,6 +34,7 @@ function createAIShip(id, spawnPoint, shipId, difficulty) {
     shipId,
     isAI:            true,
     difficulty,
+    enemyType:       ENEMY_TYPES[difficulty] || 'stupid',
     diff,
 
     x:               spawnPoint.x,

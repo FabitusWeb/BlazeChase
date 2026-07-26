@@ -63,6 +63,7 @@ export class FXSystem {
     this.fireballs  = [];   // { x, y, vx, vy, radius, maxRadius, life, maxLife }
     this.smoke      = [];   // { x, y, vx, vy, size, life, maxLife, tint, swirl }
     this.sprites    = [];   // { x, y, life, maxLife, size, img, angle?, grow? } — sprite handbook F18
+    this.entries    = [];   // { x, y, life, maxLife } — spirale di spawn nemici (F15a)
 
     this.shakeX   = 0;
     this.shakeY   = 0;
@@ -182,8 +183,12 @@ export class FXSystem {
     }
   }
 
-  /** Muzzle flash when a new bullet appears. */
-  spawnMuzzle(wx, wy, angle, color) {
+  /** Spirale di spawn nemici (CA: cerchi concentrici che convergono su ENTRY ZONE). */
+  spawnEntry(wx, wy) {
+    this.entries.push({ x: wx, y: wy, life: 0.9, maxLife: 0.9 });
+  }
+
+  /** Muzzle flash when a new bullet appears. */spawnMuzzle(wx, wy, angle, color) {
     // Flash sprite del set proprietario, orientato col colpo
     // (lo sprite punta a sinistra: offset -PI per allinearlo alla rotta)
     if (FX_SPRITES.muzzle) {
@@ -432,6 +437,9 @@ export class FXSystem {
 
     // Sprite animations (esplosione blu CA)
     this.sprites = this.sprites.filter(s => { s.life -= dt; return s.life > 0; });
+
+    // Spirali di spawn
+    this.entries = this.entries.filter(e => { e.life -= dt; return e.life > 0; });
   }
 
   draw(ctx, camX, camY) {
@@ -488,6 +496,36 @@ export class FXSystem {
         if (s.angle !== undefined) ctx.rotate(s.angle + (s.angleOff !== undefined ? s.angleOff : Math.PI / 2));
         ctx.drawImage(s.img, -size / 2, -size / 2, size, size);
         ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // ── Spirali di spawn nemici (cerchi che convergono + rotazione) ──
+    for (const e of this.entries) {
+      const frac = 1 - e.life / e.maxLife;   // 0 → 1
+      const sx = e.x - camX;
+      const sy = e.y - camY;
+      const alpha = Math.min(1, e.life / e.maxLife * 1.8);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      for (let i = 0; i < 3; i++) {
+        // 3 anelli sfalsati che si stringono verso il centro, ruotando
+        const phase = Math.min(1, Math.max(0, frac * 1.5 - i * 0.18));
+        if (phase <= 0 || phase >= 1) continue;
+        const r = 44 * (1 - phase) + 6;
+        const a0 = phase * 5 + i * 2.1;   // rotazione → effetto spirale
+        ctx.strokeStyle = i === 0 ? '#CFE8FF' : '#8FB8E8';
+        ctx.lineWidth = 2.5 - i * 0.6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, a0, a0 + Math.PI * 1.6);
+        ctx.stroke();
+      }
+      // Flash centrale di chiusura
+      if (frac > 0.8) {
+        ctx.fillStyle = `rgba(255,255,255,${(frac - 0.8) * 3})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, TAU);
+        ctx.fill();
       }
       ctx.restore();
     }

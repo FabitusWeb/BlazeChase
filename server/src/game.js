@@ -897,6 +897,7 @@ class Game {
       name:           s.name,
       shipId:         s.shipId,
       isAI:           s.isAI || false,
+      enemyType:      s.enemyType || null,   // F15a: sprite nemico dedicato (assets/enemies/)
       x:              s.x,
       y:              s.y,
       angle:          s.angle,

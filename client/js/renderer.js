@@ -22,6 +22,8 @@ export class Renderer {
     this._prevAngle = {};
     // Track bullet ids for muzzle flash / smoke trail spawning
     this._bulletIds = new Set();
+    // Track alive-ness per id: spirale di spawn all'ingresso/respawn (F15a)
+    this._aliveTrack = {};
   }
 
   /**
@@ -79,6 +81,10 @@ export class Renderer {
         const def = CONFIG.SHIPS[p.shipId || 0] || CONFIG.SHIPS[0];
         this.fx.spawnExhaust(p.x, p.y, p.angle, def.color);
       }
+      // Spirale di spawn: nuovo id vivo o respawn da morto (F15a)
+      const wasAlive = this._aliveTrack[p.id];
+      if (p.alive && wasAlive !== true) this.fx.spawnEntry(p.x, p.y);
+      this._aliveTrack[p.id] = p.alive;
     }
 
     // Track bullet ids: new bullet → muzzle flash; smoky/ring trails per weapon

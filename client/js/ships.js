@@ -8,6 +8,10 @@ const TAU = Math.PI * 2;
 const SHIP_SPRITES = [];   // shipId → Image | null
 const SHIP_SPRITE_SIZE = 40;   // px di disegno in gioco (SHIP_RADIUS=14)
 
+// F15a: sprite nemici dedicati (assets/enemies/<tipo>.png) — tipo → Image
+const ENEMY_SPRITES = {};
+const ENEMY_NAMES = ['stupid', 'good', 'expert', 'cool', 'slow', 'bzzt', 'blob', 'missile1'];
+
 export function loadShipSprites() {
   const load = (src) => new Promise((res) => {
     if (typeof Image === 'undefined') return res(null);   // Node/test env
@@ -24,6 +28,12 @@ export function loadShipSprites() {
     loadHi(def.name.toLowerCase()).then(img => {
       SHIP_SPRITES[i] = img;
     }));
+  // Sprite nemici (GFX originali dai .NMY)
+  for (const name of ENEMY_NAMES) {
+    jobs.push(load(`assets/enemies/${name}.png`).then(img => {
+      if (img) ENEMY_SPRITES[name] = img;
+    }));
+  }
   return Promise.all(jobs);
 }
 
@@ -78,7 +88,9 @@ export function drawShip(ctx, shipData, def, time, camX, camY) {
 
   if (!shipData.alive) return;
 
-  const sprite = SHIP_SPRITES[shipData.shipId || 0];
+  // F15a: i nemici AI usano il loro sprite dedicato, non le navi giocatore
+  const sprite = (shipData.enemyType && ENEMY_SPRITES[shipData.enemyType])
+    || SHIP_SPRITES[shipData.shipId || 0];
 
   // Blink when invulnerable (respawn protection)
   if (shipData.invulnerable) {
