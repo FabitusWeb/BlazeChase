@@ -6,3 +6,4 @@ dist/
 .coolify/
 .refs-tmp/
 .design/
+server/logs/

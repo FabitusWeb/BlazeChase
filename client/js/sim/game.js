@@ -15,6 +15,7 @@ import { createTurret, updateTurrets, applyBlackholes, applyGravity, updateWave,
         createPathVehicle, updatePathVehicles } from './hazards.js';
 import { createAIShip, updateAI } from './enemies.js';
 import { getMission } from './missions.js';
+import { logMatch } from './matchlog.js';
 const { TILE } = CONFIG;
 
 const SOLO_AI_COUNT = { easy: 1, medium: 2, hard: 3 };
@@ -56,7 +57,8 @@ class Game {
     if (this.mission) this.soloDiff = this.mission.difficulty;
 
     // Pick arena: mission forces its own arena, otherwise by id / 'random'
-    this.arena = getArena(this.mission ? this.mission.arenaId : (options.arenaId || 'random'));
+    this.arenaId = this.mission ? this.mission.arenaId : (options.arenaId || 'random');
+    this.arena = getArena(this.arenaId);
 
     // Create ships
     this.ships = {};
@@ -253,9 +255,9 @@ class Game {
     Object.assign(ai, createAIShip(ai.id, sp, shipId, difficulty));
   }
 
-  /** Should a just-killed AI respawn? Only in mission modes that need it. */
+  /** Should a just-killed AI respawn? Skirmish = keep 'em coming (CA). */
   _aiShouldRespawn() {
-    if (!this.mission) return false;  // skirmish & endless: waves / no respawn
+    if (!this.mission) return this.soloGameMode === 'skirmish';
     const obj = this.mission.objective;
     if (obj.type === 'eliminate') {
       const alive = this.aiShips.filter(a => a.alive).length;
@@ -360,6 +362,30 @@ class Game {
 
     // ── Ship-ship collision ────────────────────────────────
     resolveShipCollisions(this.ships);
+
+    // ── Danno da carica (bzzt): contatto rammer AI → nave umana ──
+    if (this.soloMode) {
+      for (const ai of this.aiShips) {
+        if (!ai.alive || !ai.ram) continue;
+        if (ai._ramCd > 0) { ai._ramCd -= dt; continue; }
+        for (const ship of Object.values(this.ships)) {
+          if (ship.isAI || !ship.alive || ship.invulnerable) continue;
+          const d = Math.hypot(ship.x - ai.x, ship.y - ai.y);
+          if (d < CONFIG.SHIP_RADIUS * 2) {
+            this._applyDamage(ship, 20);
+            ship.hitFlashTimer = 0.15;
+            ai._ramCd = 0.8;
+            // Rimbalzo del rammer all'indietro (come in CA: bzzt rimbalza via)
+            const a = Math.atan2(ai.y - ship.y, ai.x - ship.x);
+            ai.vx = Math.cos(a) * 300;
+            ai.vy = Math.sin(a) * 300;
+            this.events.push({ type: 'event', kind: 'explosion', x: ship.x, y: ship.y, size: 'small' });
+            if (ship.shield <= 0) { ship.shield = 0; this._killShip(ship, ai.id, null); }
+            break;
+          }
+        }
+      }
+    }
 
     // ── Fire bullets (human ships only; AI fires via updateAI) ──
     for (const [id, ship] of Object.entries(this.ships)) {
@@ -821,8 +847,9 @@ class Game {
         return;
       }
 
-      // Skirmish: all AI destroyed
-      if (this.aiShips.length > 0 && this.aiShips.every(ai => !ai.alive)) {
+      // Skirmish keep 'em coming: vittoria al kill target (come in CA)
+      const human = Object.values(this.ships).find(s => !s.isAI);
+      if (human && human.kills >= CONFIG.KILL_TARGET) {
         this._endSolo(true);
       }
       return;
@@ -845,6 +872,11 @@ class Game {
           winnerName: ship.name,
           gameTime: Math.round((Date.now() - this._startTime) / 1000),
           scores,
+        });
+        logMatch({
+          mode: 'multiplayer', arena: this.arenaId,
+          gameTime: Math.round((Date.now() - this._startTime) / 1000),
+          winner: ship.name, scores,
         });
         this._endTimeout = setTimeout(() => {
           if (!this.running) return;
@@ -887,6 +919,17 @@ class Game {
       gameTime:    Math.round((Date.now() - this._startTime) / 1000),
       shotsFired:  humanShip?.shotsFired || 0,
       shotsHit:    humanShip?.shotsHit   || 0,
+    });
+    logMatch({
+      mode: this.soloGameMode, arena: this.arenaId,
+      difficulty: this.soloDiff, victory,
+      score: this._soloScore(), kills, deaths,
+      wave:        this.soloGameMode === 'endless' ? this.wave : null,
+      missionId:   this.mission ? this.mission.id : null,
+      gameTime:    Math.round((Date.now() - this._startTime) / 1000),
+      shotsFired:  humanShip?.shotsFired || 0,
+      shotsHit:    humanShip?.shotsHit   || 0,
+      playerName:  humanShip?.name || null,
     });
     this._endTimeout = setTimeout(() => {
       if (!this.running) return;
@@ -985,6 +1028,10 @@ class Game {
             target:   obj.seconds,
           };
         }
+      } else if (this.soloGameMode === 'skirmish') {
+        // Keep 'em coming: obiettivo = kill target (F15b)
+        const human = Object.values(this.ships).find(s => !s.isAI);
+        soloInfo.objective = { text: 'KILLS', progress: human?.kills || 0, target: CONFIG.KILL_TARGET };
       }
     }
 

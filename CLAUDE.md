@@ -12,7 +12,7 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - Client: canvas 2D vanilla ES modules (`client/`), niente build step; HiDPI adattivo (resScale 1→2, salvato in localStorage `blazechase_rescale`)
 - Shared: `shared/config.js` = unica fonte di verità per le costanti (servita al client da `/js/config.js`)
 - Sim offline: `client/js/sim/` = conversione ESM dei moduli server via `npm run build:sim` (server/build-sim.mjs) — NON editare a mano
-- Test: `node --test test/` in `server/` — **119/119 verdi** al 22/07
+- Test: `node --test test/` in `server/` — **124/124 verdi** al 25/07
 
 ## Stato avanzamento (al 22/07/2026)
 
@@ -37,6 +37,8 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 - **Rendering HD**: niente `image-rendering: pixelated` sul canvas; sprite da master ad alta risoluzione (navi m128, powerup m64, tile m128) con fallback alla misura di gioco
 - **Fix bilanciamento**: colpi diretti > velocità max nave (HORNET 390×1.9=741 px/s): blaster 820, double 760, spread 700, machinegun 880, plasma/macro 640
 - **F15a nemici dedicati**: sprite dai GFX dei 26 .NMY originali (estrazione CHZ_RSRC, payload a ofs±1, frame nose-up stessa posizione relativa delle navi); `enemyType` per difficoltà (easy→stupid, medium→good, hard→expert) in state; spirale di spawn CA (3 anelli che convergono ruotando + flash) su ingresso/respawn (fx.spawnEntry, trigger per transizione alive in renderer)
+- **F15b AI archetipi + keep 'em coming**: archetipi nemici (`ARCHETYPES` in enemies.js): bzzt = rammer (niente fuoco, danno contatto 20 + rimbalzo, cd 0,8s), slow, cool, missile1 (spara MISSILE homing); pool per difficoltà (easy: stupid/slow, medium: good/cool/bzzt, hard: expert/missile1); `ai.diff` per nave = DIFF + override archetipo; **skirmish keep 'em coming**: respawn continuo, vittoria a `KILL_TARGET` (HUD: obiettivo KILLS x/y)
+- **Match log**: `server/src/matchlog.js` append-only in `server/logs/matches.jsonl` (gitignored) su solo_end e round_end; lettura via **GET /logs/matches.jsonl** (endpoint in index.js) — per analisi post-playtest
 
 ### Riferimenti (`.refs-tmp/`, gitignored)
 - `MECCANICA.md` — BIBBIA: formato CHZ_RS2, FANCYSMANCY (stats navi), ENEMYIQ (AI), formato `.lev` (testo), corsi, 36 powerup POW*
@@ -47,7 +49,7 @@ Remake web di **Chase Ace (Deluxe)** — arena shooter top-down 2-4 giocatori ne
 ### Roadmap prossime fasi
 - **F19 — BLAZE METER + abilità signature**: meter che si riempie colpendo/schivando e si svuota col turbo → abilità per nave (VIPER blink, TITAN ariete, HORNET scia incendiaria 12dps, PHANTOM stealth 5s, BLAZE overdrive 3s). Specifiche visive/tempi nel handbook (`.design/`, fx/ability/ già in assets); HUD già pronto (`player.blaze`)
 - **F13 — Arene varietà**: piante concrete per i 3 temi F18c + canali refrigerante che rallentano, stanze tema circuito con pistoni
-- **F15b — AI CA vera**: comportamenti dai 26 .NMY (skill/reaction/vision/range da ENEMYIQ, 43 u16/nemico), nemici che spawnano nemici (missile→MISSILE2), spawn continuo "keep 'em coming", turrets/mine piazzate nelle arene dai .lev; sprite già estratti in assets/enemies/ (stupid/good/expert/cool/slow/bzzt/blob/missile1)
+- **F15c — AI CA avanzata**: parametri ENEMYIQ (vision/reaction/range dai 43 u16), nemici che spawnano nemici (missile→MISSILE2), torrette/mine dai .lev nelle arene convertite; sprite pronti: cool/slow/bzzt/blob/missile1
 - **F16 — Più armi CA**: GAZ, ARTILLERY, MICRO BLASTER, BOOMERANG, TIME BLAST + powerup DEFLECTOR/HOMING TURRET/MINI TURRETS (specifiche visuali già nel handbook set 03)
 - **F17 — Mobile**: touch controls (joystick + FIRE, target 44px), UI responsive, PWA
 - **F20 — Retention**: daily run seeded + leaderboard server, endless salvage (upgrade 1-di-3), schermata progressione

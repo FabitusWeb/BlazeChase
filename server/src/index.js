@@ -47,6 +47,16 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // Match log (F15b): lettura post-playtest, JSONL append-only
+  if (urlPath === '/logs/matches.jsonl') {
+    fs.readFile(path.resolve(__dirname, '../logs/matches.jsonl'), (err, data) => {
+      if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('No matches logged yet'); return; }
+      res.writeHead(200, { 'Content-Type': 'application/jsonl; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+    return;
+  }
+
   const filePath = path.join(CLIENT_DIR, urlPath);
   // Security: prevent path traversal
   if (!filePath.startsWith(CLIENT_DIR)) {

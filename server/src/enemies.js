@@ -21,20 +21,43 @@ const DIFF = {
  * @param {number} shipId
  * @param {string} difficulty
  */
-// F15a: sprite nemico dedicato per difficoltà (dai GFX dei .NMY originali CA,
-// assets/enemies/<tipo>.png) — i nemici non usano più le navi dei giocatori
-const ENEMY_TYPES = { easy: 'stupid', medium: 'good', hard: 'expert' };
+// F15b: archetipi nemici (dai .NMY originali CA). Ogni archetipo modifica
+// il profilo DIFF della difficoltà; `ram` = niente fuoco, carica il giocatore
+// (bzzt in CA: contatto letale); `weapon` = arma usata al posto del blaster.
+const ENEMY_TYPES = {
+  easy:   ['stupid', 'slow'],
+  medium: ['good', 'cool', 'bzzt'],
+  hard:   ['expert', 'missile1'],
+};
+const ARCHETYPES = {
+  stupid:   {},
+  slow:     { speedMult: 0.55, shootInterval: 1.4 },
+  good:     {},
+  cool:     { speedMult: 1.1 },
+  bzzt:     { ram: true, speedMult: 1.35 },
+  expert:   {},
+  missile1: { weapon: 3 },   // MISSILE homing
+  blob:     {},
+};
 
-function createAIShip(id, spawnPoint, shipId, difficulty) {
+function createAIShip(id, spawnPoint, shipId, difficulty, enemyType = null) {
   const def    = CONFIG.SHIPS[shipId];
-  const diff   = DIFF[difficulty] || DIFF.easy;
+  const base   = DIFF[difficulty] || DIFF.easy;
+  const type   = enemyType || (ENEMY_TYPES[difficulty] || ['stupid'])[Math.floor(Math.random() * (ENEMY_TYPES[difficulty] || ['stupid']).length)];
+  const arch   = ARCHETYPES[type] || {};
+  // diff per nave: profilo difficoltà + override dell'archetipo (flag esclusi)
+  const diff   = { ...base };
+  for (const [k, v] of Object.entries(arch)) {
+    if (k !== 'ram' && k !== 'weapon') diff[k] = v;
+  }
   return {
     id,
     name:            ['ALPHA', 'BETA', 'GAMMA', 'DELTA'][Math.floor(Math.random() * 4)] + '-' + difficulty.toUpperCase().slice(0,1),
     shipId,
     isAI:            true,
     difficulty,
-    enemyType:       ENEMY_TYPES[difficulty] || 'stupid',
+    enemyType:       type,
+    ram:             !!arch.ram,
     diff,
 
     x:               spawnPoint.x,
@@ -45,8 +68,8 @@ function createAIShip(id, spawnPoint, shipId, difficulty) {
     angularVel:      0,
     shield:          def.shield,
     ammo:            def.ammo,
-    weapon:          0,
-    weapons:         { 0: -1 },  // weaponId → ammo (-1 = infinite)
+    weapon:          arch.weapon ?? 0,
+    weapons:         { [arch.weapon ?? 0]: -1 },  // weaponId → ammo (-1 = infinite)
     modifiers:       { seeking: 0, doubleshot: 0, tripleshot: 0, rapidfire: 0 },
     pshieldPool:     0,
     fireTimer:       0,
@@ -93,7 +116,7 @@ function updateAI(aiShips, ships, arena, dt) {
   for (const ai of aiShips) {
     if (!ai.alive) continue;
 
-    const diff = DIFF[ai.difficulty] || DIFF.easy;
+    const diff = ai.diff || DIFF[ai.difficulty] || DIFF.easy;
     const def  = CONFIG.SHIPS[ai.shipId];
 
     // Timers
@@ -146,7 +169,11 @@ function updateAI(aiShips, ships, arena, dt) {
     // Input to simulate for physics
     const input = { up: false, down: false, left: false, right: false, fire: false, dash: false, dodge: false };
 
-    switch (ai._state) {
+    if (ai.ram) {
+      // bzzt: niente tattica, niente fuoco — carica diretta sul bersaglio
+      _steerToward(ai, angleToTarget, input, dt, diff);
+      input.up = true;
+    } else switch (ai._state) {
       case 'hunt':
         _steerToward(ai, angleToTarget, input, dt, diff);
         if (dist > 160) input.up = true;

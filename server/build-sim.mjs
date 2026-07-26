@@ -97,7 +97,16 @@ writeFileSync(
   JSON.stringify({ type: 'module' }, null, 2) + '\n'
 );
 
-// 3. Simulation modules
+// 3. matchlog stub: su server scrive logs/matches.jsonl (fs, Node-only);
+//    nel browser (sim offline) è un no-op — stesso nome di export
+writeFileSync(
+  path.join(OUT, 'matchlog.js'),
+  HEADER('server/src/matchlog.js') +
+  `// No-op browser stub: il match log esiste solo lato server (fs).\n` +
+  `export function logMatch() {}\n`
+);
+
+// 4. Simulation modules
 for (const name of MODULES) {
   const src = readFileSync(path.join(SRC, name + '.js'), 'utf8');
   const esm = transform(src, name);
@@ -105,4 +114,4 @@ for (const name of MODULES) {
   console.log(`sim/${name}.js  (${esm.length} bytes)`);
 }
 
-console.log(`\nDone — ${MODULES.length + 2} files written to client/js/sim/`);
+console.log(`\nDone — ${MODULES.length + 3} files written to client/js/sim/`);

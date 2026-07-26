@@ -287,9 +287,14 @@ export class HUD {
       ctx.fillStyle = '#FF9828';
       ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
     } else {
-      // Skirmish
+      // Skirmish keep 'em coming: obiettivo KILLS x/y + nemici vivi
+      if (soloInfo.objective) {
+        const o = soloInfo.objective;
+        ctx.fillStyle = '#FFCC00';
+        ctx.fillText(`${o.text}: ${o.progress}/${o.target}`, cx, 38);
+      }
       ctx.fillStyle = '#FF9828';
-      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 38);
+      ctx.fillText(`ENEMIES: ${soloInfo.aiRemaining}`, cx, 56);
     }
   }
 
