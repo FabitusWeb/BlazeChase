@@ -28,7 +28,9 @@ function loadThemeTiles(tema) {
   });
   THEME_PROMISES[tema] = Promise.all(
     ['floor', 'wall_solid', 'wall_dest', 'wall_dest_cracked'].map(fn =>
-      load(`assets/tiles/${tema}/${fn}.png`).then(img => [fn, img]))
+      load(`assets/tiles/${tema}/m128/${fn}.png`)
+        .then(img => img || load(`assets/tiles/${tema}/${fn}.png`))   // master 128px → fallback 40px
+        .then(img => [fn, img]))
   ).then(entries => {
     THEME_SPRITES[tema] = Object.fromEntries(entries);
     return THEME_SPRITES[tema];

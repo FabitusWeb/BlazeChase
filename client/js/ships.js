@@ -18,8 +18,10 @@ export function loadShipSprites() {
       img.src = src;
     } catch { res(null); }
   });
+  // Preferisci i master 128px (rendering HiDPI pulito), fallback alla misura di gioco
+  const loadHi = async (base) => (await load(`assets/ships/m128/${base}.png`)) || (await load(`assets/ships/${base}.png`));
   const jobs = (typeof CONFIG !== 'undefined' ? CONFIG.SHIPS : []).map((def, i) =>
-    load(`assets/ships/${def.name.toLowerCase()}.png`).then(img => {
+    loadHi(def.name.toLowerCase()).then(img => {
       SHIP_SPRITES[i] = img;
     }));
   return Promise.all(jobs);

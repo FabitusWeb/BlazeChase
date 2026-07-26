@@ -42,11 +42,13 @@ export function loadFXSprites() {
   }
   jobs.push(load('assets/bullets/plasma_0.png').then(img => { if (img) (BULLET_SPRITES[5] = BULLET_SPRITES[5] || {}).f0 = img; }));
   jobs.push(load('assets/bullets/plasma_2.png').then(img => { if (img) (BULLET_SPRITES[5] = BULLET_SPRITES[5] || {}).f1 = img; }));
-  // Icone powerup esagonali (guscio oro + glifo)
+  // Icone powerup esagonali (guscio oro + glifo) — master 64px preferito (HiDPI)
   for (const def of (typeof CONFIG !== 'undefined' ? CONFIG.POWERUPS : [])) {
-    jobs.push(load(`assets/powerups/${def.effect}.png`).then(img => {
-      if (img) POWERUP_ICONS[def.effect] = img;
-    }));
+    jobs.push(
+      load(`assets/powerups/m64/${def.effect}.png`)
+        .then(img => img || load(`assets/powerups/${def.effect}.png`))
+        .then(img => { if (img) POWERUP_ICONS[def.effect] = img; })
+    );
   }
   return Promise.all(jobs);
 }

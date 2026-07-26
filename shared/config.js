@@ -79,22 +79,24 @@ const CONFIG = {
   // fireRate=s between shots, ammoCost per shot, damage per bullet, speed px/s
   // pickupAmmo: ammo granted by the WEAPON powerup; -1 ammo in inventory = infinite
   // aoe: {radius, damage} explodes on impact; beam: hitscan {length}; lay: 'mine'
+  // speed dei colpi diretti > velocità max nave (HORNET 390×1.9=741: un colpo
+  // deve sempre poter raggiungere chi fugge — fix dopo feedback playtest)
   WEAPONS: [
-    { id: 0,  name: 'BLASTER',      color: '#FFFF44', fireRate: 0.15, ammoCost: 1, damage: 8,  speed: 620, size: 4,  count: 1, spread: 0,    homing: false, infinite: true },
-    { id: 1,  name: 'DOUBLE',       color: '#44FFFF', fireRate: 0.18, ammoCost: 2, damage: 7,  speed: 570, size: 4,  count: 2, spread: 0,    homing: false, pickupAmmo: 100 },
-    { id: 2,  name: 'SPREAD',       color: '#44FF44', fireRate: 0.25, ammoCost: 3, damage: 6,  speed: 520, size: 3,  count: 3, spread: 0.26, homing: false, pickupAmmo: 90  },
+    { id: 0,  name: 'BLASTER',      color: '#FFFF44', fireRate: 0.15, ammoCost: 1, damage: 8,  speed: 820, size: 4,  count: 1, spread: 0,    homing: false, infinite: true },
+    { id: 1,  name: 'DOUBLE',       color: '#44FFFF', fireRate: 0.18, ammoCost: 2, damage: 7,  speed: 760, size: 4,  count: 2, spread: 0,    homing: false, pickupAmmo: 100 },
+    { id: 2,  name: 'SPREAD',       color: '#44FF44', fireRate: 0.25, ammoCost: 3, damage: 6,  speed: 700, size: 3,  count: 3, spread: 0.26, homing: false, pickupAmmo: 90  },
     { id: 3,  name: 'MISSILE',      color: '#FF8800', fireRate: 0.60, ammoCost: 1, damage: 30, speed: 360, size: 8,  count: 1, spread: 0,    homing: true,  pickupAmmo: 12  },
-    { id: 4,  name: 'MACHINE GUN',  color: '#FF44AA', fireRate: 0.07, ammoCost: 1, damage: 4,  speed: 720, size: 3,  count: 1, spread: 0.05, homing: false, pickupAmmo: 300 },
-    { id: 5,  name: 'PLASMA',       color: '#BB44FF', fireRate: 0.40, ammoCost: 5, damage: 20, speed: 460, size: 10, count: 1, spread: 0,    homing: false, pickupAmmo: 40  },
-    { id: 6,  name: 'MORTAR',       color: '#FFAA33', fireRate: 0.50, ammoCost: 1, damage: 12, speed: 420, size: 6,  count: 1, spread: 0,    homing: false, aoe: { radius: 60,  damage: 25 }, pickupAmmo: 20 },
-    { id: 7,  name: 'MACRO MORTAR', color: '#FF5522', fireRate: 0.90, ammoCost: 1, damage: 20, speed: 520, size: 9,  count: 1, spread: 0,    homing: false, aoe: { radius: 110, damage: 50 }, pickupAmmo: 8  },
-    { id: 8,  name: 'CHARGE ROCKET',color: '#FFDD66', fireRate: 0.45, ammoCost: 1, damage: 10, speed: 380, size: 5,  count: 1, spread: 0.12, homing: false, erratic: true, aoe: { radius: 50, damage: 20 }, pickupAmmo: 24 },
+    { id: 4,  name: 'MACHINE GUN',  color: '#FF44AA', fireRate: 0.07, ammoCost: 1, damage: 4,  speed: 880, size: 3,  count: 1, spread: 0.05, homing: false, pickupAmmo: 300 },
+    { id: 5,  name: 'PLASMA',       color: '#BB44FF', fireRate: 0.40, ammoCost: 5, damage: 20, speed: 640, size: 10, count: 1, spread: 0,    homing: false, pickupAmmo: 40  },
+    { id: 6,  name: 'MORTAR',       color: '#FFAA33', fireRate: 0.50, ammoCost: 1, damage: 12, speed: 560, size: 6,  count: 1, spread: 0,    homing: false, aoe: { radius: 60,  damage: 25 }, pickupAmmo: 20 },
+    { id: 7,  name: 'MACRO MORTAR', color: '#FF5522', fireRate: 0.90, ammoCost: 1, damage: 20, speed: 640, size: 9,  count: 1, spread: 0,    homing: false, aoe: { radius: 110, damage: 50 }, pickupAmmo: 8  },
+    { id: 8,  name: 'CHARGE ROCKET',color: '#FFDD66', fireRate: 0.45, ammoCost: 1, damage: 10, speed: 520, size: 5,  count: 1, spread: 0.12, homing: false, erratic: true, aoe: { radius: 50, damage: 20 }, pickupAmmo: 24 },
     { id: 9,  name: 'LASER CANNON', color: '#FF2222', fireRate: 0.10, ammoCost: 2, damage: 6,  speed: 0,   size: 3,  count: 1, spread: 0,    homing: false, beam: { length: 420 }, pickupAmmo: 120 },
     { id: 10, name: 'MINES',        color: '#CCCCCC', fireRate: 0.60, ammoCost: 1, damage: 0,  speed: 0,   size: 6,  count: 1, spread: 0,    homing: false, lay: 'mine', pickupAmmo: 10 },
     // ── Arsenale CA (F11a) ─────────────────────────────────
     { id: 11, name: 'SNEAKY MISSILE',color: '#FF44CC', fireRate: 0.55, ammoCost: 1, damage: 20, speed: 420, size: 7, count: 1, spread: 0,    homing: true, erratic: true, pickupAmmo: 18 },
     { id: 12, name: 'CENTERBLAST',  color: '#FFFF88', fireRate: 1.20, ammoCost: 1, damage: 0,  speed: 0,   size: 0,  count: 1, spread: 0,    homing: false, selfBlast: { radius: 150, damage: 40 }, pickupAmmo: 6 },
-    { id: 13, name: 'STICKY BOMB',  color: '#88FF88', fireRate: 0.70, ammoCost: 1, damage: 5,  speed: 380, size: 6,  count: 1, spread: 0,    homing: false, sticky: { fuse: 1.5, aoe: { radius: 80, damage: 45 } }, pickupAmmo: 10 },
+    { id: 13, name: 'STICKY BOMB',  color: '#88FF88', fireRate: 0.70, ammoCost: 1, damage: 5,  speed: 480, size: 6,  count: 1, spread: 0,    homing: false, sticky: { fuse: 1.5, aoe: { radius: 80, damage: 45 } }, pickupAmmo: 10 },
     { id: 14, name: 'LAZER TRAP',   color: '#FF3333', fireRate: 0.80, ammoCost: 1, damage: 0,  speed: 0,   size: 0,  count: 1, spread: 0,    homing: false, lay: 'lazertrap', pickupAmmo: 8 },
   ],
 

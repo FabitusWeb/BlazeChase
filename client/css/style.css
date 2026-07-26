@@ -504,8 +504,8 @@ html, body {
 #screen-playing { background: #060a1c; }
 #game-canvas {
   display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  /* Niente image-rendering: pixelated — il rendering è HiDPI (resScale≤2)
+     con sprite da master ad alta risoluzione: scala morbida, non a blocchi */
 }
 
 /* ── Scoreboard / GAME OVER ────────────────────────────────── */
