@@ -356,7 +356,7 @@ class Game {
     }
 
     // ── Ship-ship collision ────────────────────────────────
-    resolveShipCollisions(this.ships);
+    resolveShipCollisions(this.ships, this.arena);
 
     // ── Danno da carica (bzzt): contatto rammer AI → nave umana ──
     if (this.soloMode) {

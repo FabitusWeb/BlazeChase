@@ -966,8 +966,9 @@ function resizeCanvas(canvas) {
   const vh = CONFIG.VIEWPORT_H;
   const scale = Math.min(window.innerWidth / vw, window.innerHeight / vh);
   // HiDPI adattivo: parte dalla qualità salvata (impara dal PC dell'utente),
-  // altrimenti 2×; il gameLoop degrada se fps < 50 e salva la scelta
-  const saved = parseFloat(localStorage.getItem('blazechase_rescale') || '2');
+  // altrimenti 2×; il gameLoop degrada se fps < 50 e salva la scelta.
+  // Chiave v2: la v1 poteva aver salvato 1× nell'era pixelated — ripartiamo da 2×
+  const saved = parseFloat(localStorage.getItem('blazechase_rescale2') || '2');
   const resScale = Math.min(Math.max(Math.min(saved, scale), 1), 2);
   canvas.width  = Math.floor(vw * resScale);
   canvas.height = Math.floor(vh * resScale);
@@ -1022,7 +1023,7 @@ function gameLoop(now) {
           const next = renderer.resScale > 1.5 ? 1.5 : 1;
           console.log(`[BLAZE] fps ${fps.toFixed(0)} → resScale ${next}`);
           renderer.setResScale(next);
-          localStorage.setItem('blazechase_rescale', String(next));
+          localStorage.setItem('blazechase_rescale2', String(next));
           const canvas = document.getElementById('game-canvas');
           canvas.width  = Math.floor(CONFIG.VIEWPORT_W * next);
           canvas.height = Math.floor(CONFIG.VIEWPORT_H * next);
