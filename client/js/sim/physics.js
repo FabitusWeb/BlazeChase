@@ -224,7 +224,7 @@ function getTileAt(tiles, wx, wy) {
 /**
  * Ship-ship collision pushback.
  */
-function resolveShipCollisions(ships) {
+function resolveShipCollisions(ships, arena) {
   const minDist = CONFIG.SHIP_RADIUS * 2;
   const keys = Object.keys(ships);
   for (let i = 0; i < keys.length; i++) {
@@ -236,6 +236,7 @@ function resolveShipCollisions(ships) {
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
       if (dist < minDist && dist > 0.01) {
+        const ax = a.x, ay = a.y, bx = b.x, by = b.y;
         const overlap = (minDist - dist) / 2;
         const nx = dx / dist;
         const ny = dy / dist;
@@ -243,6 +244,10 @@ function resolveShipCollisions(ships) {
         a.y -= ny * overlap;
         b.x += nx * overlap;
         b.y += ny * overlap;
+        // Fix playtest: la spinta non deve mai infilare una nave nel muro —
+        // chi finisce in un tile solido torna alla posizione pre-collisione
+        if (arena && isSolidAt(arena.tiles, a.x, a.y)) { a.x = ax; a.y = ay; }
+        if (arena && isSolidAt(arena.tiles, b.x, b.y)) { b.x = bx; b.y = by; }
         // Exchange some velocity
         const relVx = a.vx - b.vx;
         const relVy = a.vy - b.vy;

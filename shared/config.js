@@ -160,8 +160,8 @@ const CONFIG = {
     LAVA:       { floor: '#4a2a10', wall: '#1a0a00', wallDest: '#3a1a08', accent: '#FF4400', acid: '#1a3a0a', refuel: '#0a1a3a' },
     // ── Temi proprietari (handbook F18) ──────────────────────
     CIRCUIT:    { floor: '#7a5f10', wall: '#e8b818', wallDest: '#c8a820', accent: '#FFCC00', acid: '#2a5a1a', refuel: '#1a2a5a', tileTheme: 'circuit_vault' },
-    SHIPYARD:   { floor: '#3a4a5c', wall: '#3a4a5c', wallDest: '#8a6a4a', accent: '#8a9aac', acid: '#2a5a1a', refuel: '#1a2a5a', tileTheme: 'orbital_shipyard' },
-    COOLANT:    { floor: '#4a6a7a', wall: '#3a4a5c', wallDest: '#c8a820', accent: '#66DDFF', acid: '#1a4a5a', refuel: '#1a2a5a', tileTheme: 'coolant_fracture' },
+    SHIPYARD:   { floor: '#3a4a5c', wall: '#3a4a5c', wallDest: '#8a6a4a', accent: '#8a9aac', acid: '#2a5a1a', refuel: '#1a2a5a', tileTheme: 'orbital_shipyard', spaceFloor: true },
+    COOLANT:    { floor: '#4a6a7a', wall: '#3a4a5c', wallDest: '#c8a820', accent: '#66DDFF', acid: '#1a4a5a', refuel: '#1a2a5a', tileTheme: 'coolant_fracture', spaceFloor: true },
   },
   THEME_NAMES: ['INDUSTRIAL', 'DESERT', 'TOXIC', 'ICE', 'LAVA', 'CIRCUIT', 'SHIPYARD', 'COOLANT'],
 

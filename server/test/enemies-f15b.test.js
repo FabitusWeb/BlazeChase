@@ -74,14 +74,14 @@ test('skirmish: vittoria al kill target, non a wipe dei nemici', (t) => {
 
 test('matchlog: logMatch non throw e scrive JSONL', (t) => {
   const fs = require('fs');
-  const os = require('os');
   const path = require('path');
-  // logMatch scrive in server/logs — verifica solo che non esploda e che il formato sia JSONL
+  // logMatch scrive in server/logs — i file di test girano in processi
+  // paralleli sullo stesso JSONL: cerchiamo la NOSTRA riga, non l'ultima
   const { logMatch } = require('../src/matchlog');
   assert.doesNotThrow(() => logMatch({ mode: 'test', arena: 'x', victory: true }));
   const file = path.resolve(__dirname, '../logs/matches.jsonl');
-  const last = fs.readFileSync(file, 'utf8').trim().split('\n').pop();
-  const entry = JSON.parse(last);
-  assert.strictEqual(entry.mode, 'test');
-  assert.ok(entry.ts, 'timestamp presente');
+  const found = fs.readFileSync(file, 'utf8').trim().split('\n')
+    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+    .some(e => e && e.mode === 'test' && e.ts);
+  assert.ok(found, 'riga di test trovata nel JSONL');
 });

@@ -90,8 +90,11 @@ for (const [x1, y1, x2, y2] of blocks) {
 }
 const COLS = 40, ROWS = 30, BORDER = 1;
 const innerW = COLS - 2 * BORDER, innerH = ROWS - 2 * BORDER;
-// fit proporzionale nell'area interna
-const scale = Math.min(innerW / (maxX - minX), innerH / (maxY - minY));
+// Scala NATURALE: 1 tile CA (48px) = 1 tile nostro (40px). Niente squish a
+// riempire la griglia: le mappe CA sono percorsi che galleggiano nello
+// spazio, con margini di starfield intorno (fix feedback playtest).
+// Si riduce sotto 1:1 solo se il livello è più grande della griglia.
+const scale = Math.min(innerW / (maxX - minX), innerH / (maxY - minY), 1 / 48);
 const offX = BORDER + (innerW - (maxX - minX) * scale) / 2;
 const offY = BORDER + (innerH - (maxY - minY) * scale) / 2;
 const toCell = (px, py) => [

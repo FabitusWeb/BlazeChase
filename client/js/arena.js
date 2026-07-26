@@ -121,6 +121,18 @@ export class ArenaRenderer {
         this._drawFloor(ctx, x, y, c, r);
         break;
       case T.WALL_SOLID:
+        // Bordo mappa = spazio (stile CA: il frame rettangolare non si vede,
+        // le strutture galleggiano nello starfield). Resta il trim hazard
+        // verso il pavimento aperto: è lui a segnare il limite di gioco.
+        if (r === 0 || c === 0 || r === CONFIG.ARENA_ROWS - 1 || c === CONFIG.ARENA_COLS - 1) {
+          this._drawFloor(ctx, x, y, c, r);
+          const hz = 7;
+          if (this._isOpen(c, r - 1)) this._drawHazardStrip(ctx, x, y, TS, hz, true);
+          if (this._isOpen(c, r + 1)) this._drawHazardStrip(ctx, x, y + TS - hz, TS, hz, true);
+          if (this._isOpen(c - 1, r)) this._drawHazardStrip(ctx, x, y, hz, TS, false);
+          if (this._isOpen(c + 1, r)) this._drawHazardStrip(ctx, x + TS - hz, y, hz, TS, false);
+          break;
+        }
         this._drawWallSolid(ctx, x, y, c, r);
         break;
       case T.WALL_DEST:
@@ -153,7 +165,9 @@ export class ArenaRenderer {
   // ── Floor: tile del tema proprietario se c'è (F18c), altrimenti
   //    starfield ORIGINALE CA (640x480 tiled), poi starfield procedurale. ──
   _drawFloor(ctx, x, y, c, r) {
-    const themeTiles = THEME_SPRITES[this.theme.tileTheme];
+    // spaceFloor: pavimento = spazio anche per i temi con tile dedicati
+    // (regola CA: il pavimento è SEMPRE starfield — fix "slab di metallo")
+    const themeTiles = this.theme.spaceFloor ? null : THEME_SPRITES[this.theme.tileTheme];
     if (themeTiles?.floor) {
       ctx.drawImage(themeTiles.floor, x, y, TS, TS);
       return;
