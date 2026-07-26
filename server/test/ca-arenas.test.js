@@ -45,14 +45,20 @@ function reachableSet(arena) {
   return seen;
 }
 
-test('6 Chase Ace Deluxe homage arenas are present', () => {
-  assert.strictEqual(CA_LAYOUTS.length, 6);
+test('12 Chase Ace Deluxe homage arenas are present', () => {
+  assert.strictEqual(CA_LAYOUTS.length, 12);
   const ids = CA_LAYOUTS.map(l => l.id);
   assert.deepStrictEqual(ids.sort(), [
+    'ca-box-life',
     'ca-chase',
     'ca-crashsite',
+    'ca-express-routes',
+    'ca-hole-in-one',
     'ca-interconnection-void',
+    'ca-monolithian-canals',
+    'ca-phaze',
     'ca-rooms-of-chaos',
+    'ca-sirkumvent',
     'ca-tripple-a',
     'ca-violent-skew',
   ]);
